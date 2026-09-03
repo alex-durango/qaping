@@ -1,0 +1,70 @@
+---
+title: "qaping — automatic QA for your game"
+sidebarTitle: "Overview"
+---
+
+Your coding agent writes the QA plan, ships every patch's build to real human
+playtesters on their own hardware, and tells you what broke. You ask once:
+
+```
+Set up QA for my game.
+```
+
+and, for every patch after that:
+
+```
+Run QA on this patch.
+```
+
+## Install
+
+```bash
+npx @qaping/cli setup
+```
+
+`setup` wires qaping into your coding agent (Claude Code, Cursor or Codex —
+pass the name to pick one), installs the `qaping` skill and signs you in.
+Then open your game repo in that agent and ask for QA.
+
+## What a run does
+
+1. **Reads the diff** and picks the checks in `QA-PLAN.md` the patch could
+   have broken.
+2. **Builds** with the one `build_command` recorded in the plan, and hosts
+   the build with `qaping publish-build` (or `qaping publish` for a
+   browser-playable game).
+3. **Files a round**: real playtesters claim it, play the build for the
+   minutes you asked for, and answer one typed outcome per check.
+4. **Reports** on the pull request — one row per check, evidence linked —
+   and files an issue for every failure.
+5. **Promotes** checks that settle into repo code tests, so QA gets cheaper
+   with every patch.
+
+The check is the unit: its id rides from the plan onto the wire, into the
+report and into the round ledger. See [the QA-PLAN.md format](/qa-plan).
+
+## What comes back
+
+| platform | how the tester plays | evidence |
+|---|---|---|
+| Windows | their own Steam client or your hosted zip | screen recording; think-aloud transcript when they used the qaping recorder |
+| macOS | Steam page, notarized download or hosted zip | screen + voice recording, inline transcript |
+| iOS | TestFlight public link or App Store page | screen + voice recording, inline transcript |
+| web | the URL you published, in their browser | the answers to your steps — no recording |
+
+Rounds are duration-billed: **2 credits per minute of play, per playtester**.
+The agent states the estimate before it files anything.
+
+## The pieces
+
+- [CLI commands](/commands) — `setup`, `publish-build`, `rounds`,
+  `results` and the rest.
+- [QA-PLAN.md format](/qa-plan) — the file the agent authors
+  and you own.
+- [The qaping skill](/skill) — the full instructions your
+  agent follows: ground rules, the setup half, the run half.
+
+The service side lives at [qaping.dev](https://qaping.dev). qaping rides the
+[pingfusi](https://www.npmjs.com/package/pingfusi) kit; the three MCP tools it
+exposes — `qaping_playtest`, `qaping_results`, `qaping_wait` — are the whole
+wire. MIT licensed.

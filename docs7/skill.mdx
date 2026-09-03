@@ -1,0 +1,429 @@
+---
+title: "qaping — the QA loop for a game repo"
+sidebarTitle: "The qaping skill"
+description: "Run automatic QA for a game repo through qaping — real human playtesters play the developer's builds on their own hardware, and the agent runs the whole loop. Use when the user says \"set up QA for my game\", \"run QA on this patch\", \"did this patch break anything\", \"playtest my game\" or \"playtest this build\", or asks for regression checks, patch verification, or human playtesting of a game. Covers both halves of the product - authoring and maintaining QA-PLAN.md in the game repo, and the per-patch run (read the diff, build, publish-build, file qaping_playtest rounds, report on the PR, file issues, promote settled checks into repo code tests). Browser-playable web GAMES count as games (they file as web rounds — url only, no platform). Do not use for web apps, websites, or UI review of anything that is not a game — the qaping tools test games only."
+---
+
+Two jobs, one file. SETUP authors `QA-PLAN.md` — the committed list of checks
+this game must pass. RUN executes it per patch: pick the affected checks,
+build, ship the build to real human playtesters, and report ONE typed outcome
+per check — never a vibe. The check is the unit of value: its id rides from
+the plan onto the wire, into the report, and into the round ledger. Over
+patches, checks migrate from human rounds to repo code tests, so QA gets
+cheaper. All service contact goes through three MCP tools —
+`qaping_playtest`, `qaping_results`, `qaping_wait` — plus
+`qaping publish-build` for hosting the build.
+
+## Ground rules (read before filing anything)
+
+- **Playtesters are real people, and a round outlives a quick turn.
+  Decide at filing time: wait, or park.** A session takes real minutes, often
+  hours, to be claimed and played. Which of the two endings this round gets is
+  chosen BEFORE you file, not discovered when pending surprises you.
+  - **WAIT — short rounds you can sit through.** Each `qaping_wait` renews the
+    lease that keeps the round visible to new claimants. The moment a filing
+    returns pending, SPAWN A BACKGROUND TASK that loops `qaping_wait` with the
+    ping_id until results arrive, and keep working on other things — that is
+    the intended shape, the same as every pingfusi round. Only if your harness
+    has no background tasks: keep polling in the foreground. A one-shot print
+    mode where neither is possible is not a WAIT round at all — it is a PARK
+    (below): file with an explicit `deadline_seconds`, record it with `qaping
+    rounds add <ping_id>`, say what is pending, and ask to be re-invoked to
+    collect it — never promise polling you cannot do (an ended session cannot
+    poll). A round already filed on the default lease is recorded anyway,
+    flagged as likely to expire unclaimed.
+  - **PARK — long or overnight rounds.** For a session nobody will sit
+    through — an overnight run, `n_target > 1` on a small pool, a native round
+    whose claim is slow, an explicit "check tomorrow", or a one-shot mode —
+    file with an explicit `deadline_seconds` sized to the span you are willing
+    to wait (the tool schema states the ceiling) plus an `idempotency_key`,
+    then IMMEDIATELY record it: `qaping rounds add <ping_id> --build <url>
+    --minutes N --checks <ids> --note "<patch>"`, which writes
+    `qa-open-rounds.json` at the repo root (gitignore it — open state, not
+    history). Then tell the user exactly what is pending and what will collect
+    it, and end the turn cleanly.
+  - **A recorded parked round is an honest pending end; an unrecorded "I'll
+    check later" never is.** Never park on the default lease: with no explicit
+    `deadline_seconds` an unwaited round leaves the feed within minutes and
+    expires unclaimed (a round died exactly that way, live). On resume,
+    collect the recorded round — never file a duplicate.
+- **Costs are duration-billed**: 2 credits per minute of play, per playtester
+  (`est_minutes × 2 × players`). State the estimate to the user BEFORE filing,
+  and set the wait expectation honestly in the same message: claim time is
+  unbounded on a small pool — "push now or wait for QA" is their call, made
+  informed.
+- **Evidence varies by platform — never promise what a platform does not
+  ship.** macOS and iOS rounds return a screen+voice recording plus an inline
+  [mm:ss] think-aloud transcript. Windows rounds return a recording, and a
+  transcript only when the tester recorded with our recorder app — read
+  `transcript_status` on each result: `'ok'` means an inline transcript,
+  `'unavailable'` means a Game Bar session with NO transcript. It is a
+  per-session fact, never promise one for a Windows round; plan to watch an
+  `'unavailable'` recording for timestamps. WEB rounds return answers only — no
+  recording, no transcript: the tester's option picks and free text are the
+  entire deliverable, which is why every check rides an option step.
+- **Pay is flat per session, never per bug.** Never offer or imply a bounty.
+  Never steer a tester's OS-security decision (stopping at a warning is their
+  penalty-free call); steering their PLAY — steps, links, forced states — is
+  the job.
+- **Machine replay is not self-serve yet.** Never claim an automated replay
+  ran. The only automated rung you can run today is a `rung: code` test in
+  the dev's own repo/CI.
+- **QA-PLAN.md is the dev's file.** Commit it only with their approval; never
+  delete or demote a human check without them agreeing.
+
+## Open rounds — collect FIRST
+
+Before ANY qaping work in a repo — a new run, a plan edit, a plain "did it
+come back yet?" — read `qa-open-rounds.json` at the repo root. `qaping rounds`
+lists it with each round's live status; without the CLI, call `qaping_results`
+once per recorded `ping_id`. The file is this, and nothing else:
+
+```json
+{"rounds": [{"ping_id": "<uuid>", "filed_at": "<ISO>", "platform": "windows",
+  "build": "<the /b/<slug> or store URL>", "est_minutes": 10,
+  "deadline_seconds": 86400, "checks": ["boot-to-menu"],
+  "note": "<the patch this round covers>"}]}
+```
+
+- **READY** (results are in): collect it BEFORE starting new work — the full
+  RUN report ritual (evidence line, computed headline, per-check rows, PR
+  comment, issues, plan updates, ledger append), then
+  `qaping rounds rm <ping_id>`.
+- **Still pending**: say so plainly, with what it is still waiting on, and
+  leave it recorded. Never refile it and never start a second round on the
+  same checks while it is open.
+- **Expired or unreadable**: report that honestly — an expired round bought
+  nothing — then `qaping rounds rm <ping_id>` and offer a refile (a fresh
+  build URL if the old one expired, and a longer `deadline_seconds`).
+- **Not visible from this login** reads identically to gone, and is not the
+  same thing: results are asker-scoped, so a round filed from another account
+  is alive and invisible. Check `qaping whoami` before deleting that record.
+
+`qa-open-rounds.json` is mutable OPEN state; `qa-rounds.jsonl` is append-only
+history written after results land. Never merge the two.
+
+## The review interface (know your tester)
+
+\<!-- Distilled from QAPING_REVIEWER_INTERFACE.md (monorepo root, INTERNAL,
+     code-cited). Re-derive there when a reviewer surface changes. -->
+
+Binding, derived from the review interfaces' code. The person who claims a
+web round is on their phone, scrolling a feed. They read `instructions`
+BEFORE claiming — front-load hardware and requirements there so the wrong
+tester never claims. On claim the game auto-loads into an embedded browser
+view with your steps beside it on the same small screen, with zero context;
+attention is highest in the first minutes; setup friction is unpaid time.
+
+The tester CAN: play the already-loaded game (touch, scroll, type); go
+Back; Reload — which KEEPS storage, so a reload is never a fresh state; see
+all steps at once and answer in any order; tap ONE option per option step;
+type a note on any question step; pin a comment to a page element and draw
+on it; pick one verdict; bail out with a reason.
+
+The tester CANNOT:
+- open tabs or windows — window.open and target=_blank links are dead
+  INSIDE the game too, so a game whose Play button opens a new window is
+  broken-for-review: flag it to the dev instead of filing;
+- type or edit a URL: the round's `url` is the only page-load there is, and
+  links in step text are inert on the phone — never put links in steps;
+- clear storage or go incognito: fresh state comes ONLY from a setup URL
+  param the round's `url` already carries;
+- use devtools, attach files, or record — web rounds return answers only;
+- use a second device;
+- see `instructions` or `expected` once inside the review — EVERYTHING the
+  tester needs at answer time lives in the step text (≤300 chars each).
+
+**Steps speak player language (MUST).** Things to tap and see in the game —
+never flags, URL parameters, storage, or code concepts. A test hook is
+exercised by the ROUND's `url` carrying it; the step describes only the
+player-visible expectation ("the How to play option should be offered
+first"), never the mechanism. Never ask to close/reopen anything or "start
+fresh" — that state is a separate round whose `url` forces it. And as
+always: one action per step, exact UI labels (the button says "Continue",
+not "the resume option"), the most important check first, and never a step
+that assumes they read your repo.
+
+## SETUP — author QA-PLAN.md (first run in a repo)
+
+1. Read the game repo: engine, how a shippable build is produced, save system,
+   settings, input devices the game supports.
+2. Ask the dev ONCE for their build command (the one command that produces a
+   shippable build) and which platforms they ship; record both in the plan's
+   frontmatter so every future run can build without asking again.
+3. Author `QA-PLAN.md` at the repo root in EXACTLY this format (self-contained
+   here — do not go looking for other docs). Plan frontmatter (YAML at the
+   very top): `game`, `build_command` (the ONE shippable-build command),
+   `platforms: [windows|macos|ios|web]` (`web` = a browser-playable game — its
+   "build" is a static directory, not a zip), optional `input` (hardware;
+   default keyboard+mouse, or touch for a mobile-web game).
+   Then one `##` section per check — the heading is the check's short name —
+   opening with a fenced yaml block of `id` (stable slug, never renamed),
+   `rung: human | code`, `state` (`unverified | passed | ambiguous | failing`
+   — new checks start `unverified`), `origin` ("authored" or the round id that
+   last changed it), `last_verified` (date or build tag), and optionally
+   `setup` (the link or flag that forces this check's precondition — see
+   "Make the build testable"), followed by the steps as numbered prose a
+   playtester who has never seen the game can follow. Author each check to
+   end in an observation ask, with its precondition stated as a verifiable
+   step-zero fact (forced by `setup`, else verified by an opening question).
+   A `rung: code` check keeps its prose and adds one `test:` line naming the
+   repo test that asserts it. Order checks critical-path first, then
+   game-specific ones:
+   1. the game boots to the main menu
+   2. a previous-version save loads
+   3. the first 15 minutes play clean on the declared input hardware
+   4. the core loop works (name it concretely — the thing this game is)
+   5. settings persist across a restart
+4. **Enter each check at the right rung.** A check that is mechanically
+   assertable — a save file loads, a config parses, an asset path resolves —
+   enters at `rung: code` from day one: write the repo test then and there,
+   never "start it human and promote later". Human rounds are reserved for
+   what only a human can judge. Where a save must still be human-tested, the
+   dev provides the fixture: the previous release's save ships inside the
+   build (or seeds via URL param on web), named in the check's steps — a
+   stranger in a fresh browser cannot possess your old save.
+5. **Gyms**: for a mechanic worth isolating, you may build a tiny
+   deterministic test scene or page in the dev's repo — one mechanic,
+   machine-readable pass/fail. Ordinary dev work; offer it, never force it.
+6. Tell the dev how runs get triggered, honestly: for now the loop runs from
+   their own machine or agent — after a patch lands, they say "run QA on this
+   patch". Do NOT offer to wire a CI workflow file: a plain CI runner has no
+   qaping MCP connection and no login, so a committed workflow could not run
+   this loop today; a CI-triggered recipe is a documented follow-up. Until it
+   ships, per-patch QA is an ask-your-agent step.
+7. Show the dev the plan and commit only on their approval.
+
+## Make the build testable
+
+Before publishing a test build, you SHOULD add test affordances to the dev's
+own code — ordinary dev work that turns self-reported state into forced,
+verifiable state:
+
+- URL params or flags that force states: `?fresh=1` (a true first visit),
+  `?difficulty=medium`, `?state=<checkpoint>` (start at a checkpoint).
+- Bundled save fixtures plus a load control (the previous release's save,
+  shipped in the build).
+- Seeded randomness, so a reported oddity reproduces.
+- A corner build stamp (build hash + first-run/save-state flag; a `?qa=1`
+  overlay on web) with a step asking the tester to read it back — a read-back
+  fact is verified; self-report is not.
+
+Record each check's hook in its `setup` field; at filing time the hook
+rides the ROUND's `url` — the game loads it itself, so the tester never
+sees or types it — and the filed step states only the player-visible
+expectation. The unreviewed-developer-build disclosure
+already covers shipping these; the no-steering rule forbids steering SAFETY
+decisions only. A store-delivered build that cannot surface state keeps its
+checks testimony-only — mark that in the plan and report at that grade.
+
+## RUN — per patch
+
+1. **Select.** Read the diff (or PR). Pick the checks it can plausibly affect,
+   plus the always-run criticals (the critical-path block above) and every
+   check the ledger left NOT-ASKED or Blocked last round. Tell the user which
+   checks run and why.
+2. **Compose sessions.** Partition the selected checks by required state —
+   fresh-install / progression / settings-mutating — and put state-mutating
+   checks LAST within their session. A session has ONE state: its round
+   `url` (carrying the forcing setup param) is the only state control that
+   exists — testers cannot clear storage or start fresh themselves — so
+   checks needing different forced states never share a session. Budget play content: sum the checks'
+   directed play time; if it exceeds est_minutes, split into parallel
+   5-minute rounds (credit-neutral: two focused 5-minute rounds cost one
+   diluted 10-minute round) or raise est_minutes within the cap, and state
+   the trade beside the cost estimate. Depth beyond the budget rotates across
+   patches; note in the plan which slice ran last.
+3. **Build** via the recorded build command, with each selected check's
+   `setup` affordance in place; zip the result (native) or keep the built
+   static directory (web).
+4. **Ship**, by delivery: NATIVE uploads — `qaping publish-build <game.zip>
+   --platform windows|macos` → prints a `/b/<slug>` URL (temporary hosting;
+   filing a playtest extends the build through the round; a CHANGED build gets
+   a new URL, while re-publishing an unchanged zip returns the same build).
+   You hold only a handful of hosted builds at once: if a publish is refused
+   for that cap, `qaping builds` lists what you are holding and
+   `qaping builds rm <slug>` frees a slot — do that and carry on rather than
+   stopping to ask. The listing marks each build: never-finished uploads are
+   safe to delete first, and any build an open round is still using is marked
+   `IN USE` — never delete one of those, whichever session filed it. If every
+   build is in use, say so and wait for a round to finish rather than guessing. Store-delivered games file with their Steam store
+   page, TestFlight public link, or App Store page as `url`. WEB games — host the built output
+   at a public URL: the dev's own hosting if they have it, else
+   `qaping publish <built-dir>` prints a hosted URL. Localhost never works —
+   players open the link on their own devices. When filing a WEB game: send
+   `url` + `est_minutes` and OMIT `platform` entirely — a web round is claimed
+   by players in their own browser, phones included.
+5. **File** ONE `qaping_playtest` per composed session, always with
+   `questionnaire:'none'` — on a QA-PLAN round your checks are the questions;
+   the standard instrument is a separate experience round (below), never a
+   default. A WEB session additionally files `require_evidence:'none'`
+   (MUST) — left at its default, the finish silently demands a pinned
+   screenshot-comment no step asked for. est_minutes is an
+   honest sum of the steps' directed play — the service
+   accepts 5–30 minutes (10 is the standard session; outside that
+   range the filing is refused, not clamped), and the clock is play time:
+   download/install happens before it starts. The authored steps MUST be:
+   - **one step per selected check**, its text opening with the id token —
+     `[spin-readable] …` — the plan prose rewritten as an observation
+     question ("describe what the start menu showed and what you tapped
+     first", never "confirm the menu appears"), with options exactly
+     ["Pass — as described", "Fail — describe exactly what you saw",
+     "Couldn't test — say why", "Didn't reach this part"] — the pick comes
+     back verified in steps_result. EXCEPTION: when the check asks the
+     tester to DISCRIMINATE between named states ("which difficulty did the
+     bot play like?", "which screen did you land on?"), the options are the
+     NAMED candidates themselves ("rookie-level" / "harder than that") plus
+     "Couldn't tell — say why" — generic Pass/Fail on a discrimination
+     yields contradictions instead of a signal (measured live);
+   - option labels ≤40 chars, 2–4 options per step; never author a final
+     step whose options duplicate the verdict options — the phone hides it
+     as a duplicate of the verdict control;
+   - a check with a `setup` hook is forced by filing the session's `url`
+     WITH the hook — the game loads it itself; the step states only the
+     player-visible expectation. One whose precondition cannot be forced
+     opens with a verifying option step ("Before this session: had you ever
+     played this game before?" — yes / no / not sure);
+   - a recheck of a prior finding is a clearly-labeled step at its natural
+     play-order point (first when its required state demands it, last
+     otherwise) — "VERIFY FIX: last round saw X — does it still happen?" —
+     and prior findings stay OUT of `instructions` entirely, so the rest of
+     the pass is an independent look;
+   - a closing **break-it slice** (~2–3 minutes) authored from the diff:
+     "this patch changed X — try to break it: \<concrete abuse ideas from the
+     diff>. Report the weirdest thing you saw AND list what you tried."
+     Abuse ideas target PLAYER-VISIBLE behaviors the diff changed — things a
+     player can tap, see, or provoke — never internal mechanisms (a flag, a
+     cache, a storage key means nothing to a player).
+     Finding nothing is a fine answer when we know what was attempted; frame
+     it in `instructions` as "these checks are the territory — break anything
+     near them";
+   - hardware verification where it matters: needs beyond keyboard+mouse go
+     up front in `instructions` AND an explicit step asks which input device
+     was actually used, with options.
+   **Filing gate (MUST):** print `this round covers: <ids>` per session and
+   assert the ids — unioned across every session this run files — equal the
+   Select step's list BEFORE calling qaping_playtest. The wire keeps only
+   the FIRST 20 steps_result rows and a play directive is prepended, so with
+   `questionnaire:'none'` budget at most 19 authored steps per session (8 if
+   the standard questionnaire rides) — rows past 20 are answered by the
+   tester and silently dropped at finish, which is why this gate exists. A
+   mismatch (the budget forcing cuts) fails loudly PRE-SPEND: batch another
+   session or state the deferral out loud — never silently truncate.
+6. **Wait or park — decide now** (ground rule 1). WAIT: spawn a background
+   task looping `qaping_wait` and keep working — foreground polling is the
+   fallback. PARK: the filing already carried an explicit `deadline_seconds`
+   sized to the span, so record it — `qaping rounds add <ping_id> --build
+   <url> --minutes N --checks <ids> --note "<patch>"` — tell the user what is
+   pending, and end the turn; a later session collects it. A promise to check
+   later is never a wait, and never a substitute for the record.
+7. **Report** from `qaping_results`:
+   - **Evidence line first (MUST).** Every report opens with its grade:
+     `Evidence: recording + transcript` (macOS/iOS, or a Windows result with
+     `transcript_status:'ok'`) / `Evidence: recording only` (a Windows result
+     with `transcript_status:'unavailable'` — a Game Bar session) /
+     `Evidence: testimony only (web round)`.
+   - **Computed headline (MUST).** Derive the one verdict sentence from the
+     per-check outcomes, never from the tester's own verdict: `PASS` only
+     when every selected check returned Pass; `PASS — N unverified (<ids>)`
+     when nothing failed but any check is Blocked or NOT-ASKED; `FAIL: <id>`
+     on any Fail. Quote the tester's global verdict beneath it as one input —
+     it is never the headline. (The iterate rule already says unresolved
+     findings mean fix and refile — unresolved never headlines as PASS.)
+   - **One row per SELECTED check (MUST)**, keyed by id, outcome from
+     \{Pass, Fail, Blocked, NOT-ASKED\}. "Couldn't test" and "Didn't reach this
+     part" are Blocked, with the why. A check that reached the wire as more
+     than one row (a precondition step, a VERIFY FIX pair) takes its outcome
+     from the WORST row: any Fail → Fail; else any Blocked or unanswered row
+     leaves the check unverified and the headline counts it ("PASS — N
+     unverified") — never plain Pass over a Blocked sub-step. A check whose precondition came back
+     unverified or disproven is VOID — report it as Blocked ("VOID:
+     precondition unverified"), never as a pass or fail, and leave
+     `last_verified` untouched. A selected check that never made the wire or
+     never came back is NOT-ASKED and carries forward into the next filing
+     automatically. Cite [mm:ss] where a transcript or recording exists; on a
+     web round cite the step answers — there are no timestamps to cite.
+   - PR comment via `gh pr comment`: evidence line, the computed verdict
+     sentence first, then the per-check rows, then credits spent.
+   - **Ledger append (MUST).** Append ONE JSON line to `qa-rounds.jsonl` at
+     the game repo root, committed alongside the plan updates:
+     `{"round_id": …, "report_url": …, "build": "<sha or hosted url>",
+     "evidence_grade": …, "checks": [{"id": …, "outcome": …}], "verdict": …,
+     "credits": …, "follow_ups": […]}`. `report_url` is the round's service
+     report page (the `report_url` the results tool returns — never a PR or
+     issue link). No evidence-link field, deliberately: signed recording URLs
+     expire in days, so durable evidence pointers live in the report/issues,
+     not the ledger. The ledger is machine truth;
+     `last_verified` stays in QA-PLAN.md as the dev-readable contract derived
+     from it, and "carry findings forward" is a read of the last line's
+     follow_ups, not prose archaeology.
+   - **Close a parked round (MUST).** In the same step as the ledger append,
+     drop this round from `qa-open-rounds.json` with
+     `qaping rounds rm <ping_id>`, so the open-state file never outlives the
+     round it names.
+   - Update `QA-PLAN.md` from the outcomes: Pass → `state: passed` and
+     `last_verified` this build/date; a Fail with hard evidence → `failing`;
+     a Fail that could be dirty state or tester noise → `ambiguous`;
+     Blocked/NOT-ASKED touch nothing. A check changed because of this round
+     records the round id as `origin`.
+   - **QA memory (standing rule, not just here)**: whenever the developer
+     mentions — in any conversation — something that should always be tested,
+     a fragile area, or a QA lesson learned, offer to record it as a check
+     (or a note on an existing check) in `QA-PLAN.md` right then, so the plan
+     accretes knowledge instead of losing it to chat scrollback.
+   - Issues: one `gh issue create` per finding — drafts for the dev's own
+     triage, never near-duplicates, never one issue per symptom of the same
+     bug. Before reproduction the body carries "observed once, unreproduced"
+     plus a proposed severity from consequence (blocks progress / degrades /
+     cosmetic). The label CONFIRMED is reserved for a targeted round or
+     unambiguous in-round evidence; a CONFIRMED issue carries repro steps
+     rebuilt from the tester's answers and a timestamp link into the
+     recording where one exists (web rounds have none — cite answers).
+
+## The ambiguity ladder
+
+An `ambiguous` or first-time-failing check never re-runs inside the next
+batch — it refiles ALONE as a targeted ~5-minute round: one check, its
+precondition forced via `setup` (or verified by the opening option step),
+plus the disambiguation steps. That round settles it: Pass → `passed` (note
+the fluke); Fail → `failing`, and the issue upgrades to CONFIRMED. Never
+resolve an ambiguity by re-buying the whole batch, and never label a
+once-seen fail CONFIRMED without that round or hard evidence.
+
+## Paired rounds (two-state comparisons)
+
+A feel/physics/balance regression judged absolute buys little — a stranger
+answers "did spin feel right" in a vacuum. But a comparison never rides one
+round: never two links in one round — links in step text are inert on the
+phone and `instructions` go unread in-review, so a second URL simply never
+gets opened. When a check needs TWO states compared (with/without a hook,
+old build vs new), file TWO paired rounds with the SAME steps, one per
+state, each state forced by its own round `url` (the ledger's `build` field
+keeps the old build recoverable), and compare the answers yourself in the
+report. Caveat it: different testers played each side, and a tester told to
+hunt changes reports noise as change. Native builds pair the same way, one
+build per round — re-publish the previous zip if its /b/\<slug> expired.
+
+## The experience round (opt-in, never a default)
+
+The standard 11-item player-experience questionnaire never rides a QA-PLAN
+round. Offer it separately, at milestones, as an experience round: no checks
+attached, questionnaire left on, n_target up to 3 players, priced
+transparently (est_minutes × 2 × players — state it first). Single-tester
+scores are trend data — meaningful only after 3+ rounds on the same game,
+never compared across testers or builds at n=1. If 8 or more of the 11 scale
+answers are identical, report "low-differentiation response — treat scores as
+unreliable" and never average them into a comparison.
+
+## PROMOTE — make the suite cheaper
+
+When a check has passed and is mechanically assertable — a save file loads, a
+config parses, an asset path resolves — offer to write a normal test in the
+repo's own test suite; the ledger's per-check pass history is the evidence
+that justifies the offer. On the dev's yes: write the test, flip the check's
+`rung` to `code`, keep the prose (it documents intent) and add a `test:` line
+naming the test file. `rung: code` checks then run in the dev's own CI for
+free — that is the point: every check starts as human as it must and gets
+cheaper over time. Checks about feel, difficulty, or ambiguous visuals stay
+`rung: human` permanently. Never delete or demote a human check without the
+dev agreeing.

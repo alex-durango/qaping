@@ -1,0 +1,47 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "qaping",
+  "description": "Automatic QA for your game: your coding agent writes the QA plan, ships each patch's build to real human playtesters, and reports what broke.",
+  "colors": {
+    "primary": "#FF7A45",
+    "light": "#FFA07A",
+    "dark": "#C9532A"
+  },
+  "logo": {
+    "light": "/icon.svg",
+    "dark": "/icon.svg",
+    "href": "https://qaping.dev"
+  },
+  "favicon": "/icon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start here",
+        "pages": ["index", "commands"]
+      },
+      {
+        "group": "The QA loop",
+        "pages": ["qa-plan", "skill"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      { "label": "npm", "href": "https://www.npmjs.com/package/@qaping/cli" }
+    ],
+    "primary": { "type": "button", "label": "qaping.dev", "href": "https://qaping.dev" }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/alex-durango/qaping"
+    }
+  },
+  "seo": {
+    "organization": {
+      "name": "qaping",
+      "url": "https://qaping.dev",
+      "sameAs": ["https://www.npmjs.com/package/@qaping/cli"]
+    }
+  }
+}
