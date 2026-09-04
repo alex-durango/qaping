@@ -18,8 +18,10 @@ qaping results <ping_id> [--json]
 qaping rounds [--json] [--offline] [--file <path>]
 qaping rounds add <ping_id> [--platform windows|macos|ios] [--build <url>]
                             [--minutes N] [--deadline-seconds N]
-                            [--checks a,b,c] [--note "<patch>"] [--json]
+                            [--game <slug>] [--checks a,b,c]
+                            [--note "<patch>"] [--json]
 qaping rounds rm <ping_id> [--json]
+qaping issues <game> [--json] [--status open|fixed|verified|closed]
 qaping whoami
 qaping version
 ```
@@ -87,12 +89,29 @@ repo root, each with its live status. `--offline` skips the status lookup;
 
 Records a round the agent chose to park — an overnight run, a slow native
 claim — so a later session collects it instead of filing a duplicate. Add
-`--build`, `--minutes`, `--deadline-seconds`, `--checks` and `--note` so the
-record explains itself.
+`--build`, `--minutes`, `--deadline-seconds`, `--game`, `--checks` and
+`--note` so the record explains itself; `--game` is the QA plan's
+`game_slug`, so the session that collects the round knows which issue board
+it moved.
 
 ### `qaping rounds rm <ping_id>`
 
 Forgets a parked round once it is collected or expired.
+
+## The issue board
+
+### `qaping issues <game> [--json]`
+
+Prints the game's issue board: every bug that outlived a round, with its
+status — open, fixed (you claim it is fixed), verified (a playtester
+confirmed it is gone), closed. `--status` prints one status only; `--json`
+prints the machine-readable rows.
+
+Read-only, on purpose. Your agent files, claims, closes and reopens issues
+through the `qaping_issues` MCP tool while it runs the loop; this is the
+window you read it through. Nothing on the board costs credits — only rounds
+do — and nothing turns *verified* except a playtester answering "Gone" on a
+round filed after the fix was claimed.
 
 ## Files qaping leaves in your repo
 
@@ -101,3 +120,6 @@ Forgets a parked round once it is collected or expired.
 | `QA-PLAN.md` | the checks this game must pass; the agent authors, you own | yes — see [the format](/qa-plan) |
 | `qa-rounds.jsonl` | append-only history, one line per finished round | yes |
 | `qa-open-rounds.json` | rounds filed and not yet collected | no — gitignore it |
+
+The issue board is not a file: it lives on the service, one board per game,
+and `qaping issues <game>` reads it. The plan's `game_slug` is what names it.

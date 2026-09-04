@@ -36,7 +36,10 @@ Then open your game repo in that agent and ask for QA.
 3. **Files a round**: real playtesters claim it, play the build for the
    minutes you asked for, and answer one typed outcome per check.
 4. **Reports** on the pull request — one row per check, evidence linked —
-   and files an issue for every failure.
+   and files every bug on the game's issue board, so the next round re-checks
+   it. A fix your agent claims stays a claim until a playtester answers
+   "Gone" on a later round; then it is verified. `qaping issues <game>`
+   prints that board.
 5. **Promotes** checks that settle into repo code tests, so QA gets cheaper
    with every patch.
 
@@ -65,6 +68,6 @@ The agent states the estimate before it files anything.
   agent follows: ground rules, the setup half, the run half.
 
 The service side lives at [qaping.dev](https://qaping.dev). qaping rides the
-[pingfusi](https://www.npmjs.com/package/pingfusi) kit; the three MCP tools it
-exposes — `qaping_playtest`, `qaping_results`, `qaping_wait` — are the whole
-wire. MIT licensed.
+[pingfusi](https://www.npmjs.com/package/pingfusi) kit; the four MCP tools it
+exposes — `qaping_playtest`, `qaping_results`, `qaping_wait`,
+`qaping_issues` — are the whole wire. MIT licensed.

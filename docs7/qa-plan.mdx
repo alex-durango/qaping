@@ -14,11 +14,18 @@ YAML at the very top of the file:
 ```yaml
 ---
 game: Solar Drift
+game_slug: solar-drift                          # the issue board's id — minted ONCE, never renamed
 build_command: ./scripts/package.sh --release   # the ONE command that produces a shippable build
 platforms: [windows]                            # windows | macos | ios | web
 input: XInput gamepad                           # optional; default keyboard+mouse
 ---
 ```
+
+`game_slug` is minted once from the game name — lowercase, every run of
+non-alphanumerics collapsed to a single `-`, no leading or trailing `-`, ≤64
+characters — and is then permanent, exactly like a check id: it names the
+game's issue board, and renaming it orphans every issue filed under the old
+one. Every playtest round is filed with it as `game`.
 
 `build_command` is recorded once at setup so every future run can build without
 asking. `platforms: [web]` means a browser-playable game — its "build" is a
@@ -91,6 +98,26 @@ setup: "?save=campaign-mid"
    anything missing, corrupted, or visually wrong.
 ````
 
+## Bugs live on the issue board; checks live here
+
+A check is what the game must ALWAYS do — it belongs in this file, forever. A
+bug is what the game does wrong right now — it belongs on the game's issue
+board (`qaping issues <game_slug>`, moved by the agent through the
+`qaping_issues` tool), where it is numbered, carried across rounds, and
+retired when it is gone. Do not write bugs into `QA-PLAN.md`: a check written
+to describe one bug ("the shop does not close when you press B twice") ages
+into a puzzle the moment the bug is fixed.
+
+The board is what makes a fix provable. The agent may CLAIM a fix (with the
+exact build URL the next round will play); only a playtester answering
+"Gone" on a round filed after that claim turns the issue *verified*, and a
+"Still here" on a claimed fix regresses it. Because every round is filed with
+`game`, the board's open and claimed-fixed issues ride it as the playtester's
+checklist — no step budget spent, no bug forgotten between patches.
+
+A check and the bug that came from it stay linked through the issue's
+`check_id`: the same id this file gives the check.
+
 ## The round ledger — qa-rounds.jsonl
 
 Beside the plan, at the game repo root, sits `qa-rounds.jsonl`: one JSON line
@@ -99,6 +126,8 @@ appended per round, committed alongside the plan updates —
 ```json
 {"round_id": "…", "report_url": "…", "build": "<sha or hosted url>",
  "evidence_grade": "…", "checks": [{"id": "…", "outcome": "…"}],
+ "issues": {"game": "solar-drift", "verified": [3], "regressed": [5],
+  "new": [7], "still_open": [2]},
  "verdict": "…", "credits": 20, "follow_ups": ["…"]}
 ```
 
@@ -109,8 +138,11 @@ page (what the results tool returns), never a PR or issue link. There is no
 evidence-link field, deliberately: signed recording URLs expire in days.
 The ledger is the machine truth of what was asked and answered, per check,
 per round; the plan's `last_verified` and `state` are derived from it and
-stay the dev-readable contract. Open `follow_ups` are what the next filing
-must carry forward.
+stay the dev-readable contract. `issues` is what this round did to the issue
+board, by number (omitted when the round carried no `game`). `follow_ups` is
+NON-BUG follow-ups only — a check to add, a build affordance to write, a
+question to settle; bugs go on the board, where they are numbered and
+re-checked. Open `follow_ups` are what the next filing must carry forward.
 
 ## Rounds still open — qa-open-rounds.json
 
@@ -121,12 +153,13 @@ PARKED: filed with an explicit long deadline, then recorded in
 ```json
 {"rounds": [{"ping_id": "<uuid>", "filed_at": "<ISO>", "platform": "windows",
   "build": "<the hosted or store URL>", "est_minutes": 10,
-  "deadline_seconds": 86400, "checks": ["<check ids>"],
-  "note": "<the patch this round covers>"}]}
+  "deadline_seconds": 86400, "game": "solar-drift",
+  "checks": ["<check ids>"], "note": "<the patch this round covers>"}]}
 ```
 
 `qaping rounds` lists it with each round's live status, `qaping rounds add`
-records one, `qaping rounds rm` drops it once collected. This file is the
+(with `--game` for the board this round carries) records one,
+`qaping rounds rm` drops it once collected. This file is the
 opposite of the ledger and never merges with it: mutable OPEN state, one entry
 per round still owed, emptied as rounds land. It is not history — gitignore it.
 

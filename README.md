@@ -1,7 +1,7 @@
 # qaping docs
 
 The source of the qaping documentation site, generated from the `@qaping/cli`
-package (version 0.2.0) at each release — nothing here is edited by hand,
+package (version 0.3.0) at each release — nothing here is edited by hand,
 and a pull request against this repository cannot land: fix the doc in the
 package instead.
 
