@@ -37,9 +37,11 @@ Then open your game repo in that agent and ask for QA.
    minutes you asked for, and answer one typed outcome per check.
 4. **Reports** on the pull request — one row per check, evidence linked —
    and files every bug on the game's issue board, so the next round re-checks
-   it. A fix your agent claims stays a claim until a playtester answers
-   "Gone" on a later round; then it is verified. `qaping issues <game>`
-   prints that board.
+   it. Each round carries as many of those bugs as its length allows, rotating
+   so nothing sits unchecked forever, and the playtester answers each one.
+   A fix your agent claims stays a claim until playtesters say the bug is
+   gone on a later round — two of them for anything serious — and only then
+   is it verified. `qaping issues <game>` prints that board.
 5. **Promotes** checks that settle into repo code tests, so QA gets cheaper
    with every patch.
 

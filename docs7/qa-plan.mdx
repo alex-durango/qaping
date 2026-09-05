@@ -110,13 +110,24 @@ into a puzzle the moment the bug is fixed.
 
 The board is what makes a fix provable. The agent may CLAIM a fix (with the
 exact build URL the next round will play); only a playtester answering
-"Gone" on a round filed after that claim turns the issue *verified*, and a
-"Still here" on a claimed fix regresses it. Because every round is filed with
-`game`, the board's open and claimed-fixed issues ride it as the playtester's
-checklist — no step budget spent, no bug forgotten between patches.
+"Gone" on a round filed after that claim — against that same build — turns the
+issue *verified*, and a "Still here" on a claimed fix regresses it. A blocker
+or a major needs TWO playtesters to say "Gone" before it turns green; a minor
+or cosmetic needs one.
+
+Because every round is filed with `game`, the board's live issues ride it as
+the playtester's checklist — no step budget spent, no bug forgotten between
+patches. The checklist is sized to the session (8 issues on a 5-minute round,
+18 on a 30-minute one, 20 at the ceiling) and it rotates, so a minor filed
+weeks ago comes back round instead of starving behind the blockers. Each
+issue gets one of four answers: **Still here**, **Gone**, **Couldn't test**
+(reached it, still could not tell) or **Didn't reach** (never got to that part
+of the game).
 
 A check and the bug that came from it stay linked through the issue's
-`check_id`: the same id this file gives the check.
+`check_id`: the same id this file gives the check. Each issue also carries an
+optional `area` — one or two words a player recognises, like "camp screen" —
+which is how the checklist groups itself into a route through the game.
 
 ## The round ledger — qa-rounds.jsonl
 
@@ -127,7 +138,7 @@ appended per round, committed alongside the plan updates —
 {"round_id": "…", "report_url": "…", "build": "<sha or hosted url>",
  "evidence_grade": "…", "checks": [{"id": "…", "outcome": "…"}],
  "issues": {"game": "solar-drift", "verified": [3], "regressed": [5],
-  "new": [7], "still_open": [2]},
+  "new": [7], "unreached": [9], "still_open": [2]},
  "verdict": "…", "credits": 20, "follow_ups": ["…"]}
 ```
 
@@ -139,10 +150,12 @@ evidence-link field, deliberately: signed recording URLs expire in days.
 The ledger is the machine truth of what was asked and answered, per check,
 per round; the plan's `last_verified` and `state` are derived from it and
 stay the dev-readable contract. `issues` is what this round did to the issue
-board, by number (omitted when the round carried no `game`). `follow_ups` is
-NON-BUG follow-ups only — a check to add, a build affordance to write, a
-question to settle; bugs go on the board, where they are numbered and
-re-checked. Open `follow_ups` are what the next filing must carry forward.
+board, by number (omitted when the round carried no `game`); `unreached` is
+the issues whose only answer was "Didn't reach" — carried, shown, and never
+got to. `follow_ups` is NON-BUG follow-ups only — a check to add, a build
+affordance to write, a question to settle; bugs go on the board, where they
+are numbered and re-checked. Open `follow_ups` are what the next filing must
+carry forward.
 
 ## Rounds still open — qa-open-rounds.json
 

@@ -104,14 +104,30 @@ Forgets a parked round once it is collected or expired.
 
 Prints the game's issue board: every bug that outlived a round, with its
 status — open, fixed (you claim it is fixed), verified (a playtester
-confirmed it is gone), closed. `--status` prints one status only; `--json`
+confirmed it is gone), closed. Each bug prints as one compact line — number,
+status, severity, the part of the game it lives in, the title — over a second
+line of counters: how close a claimed fix is to being confirmed ("1 of 2
+confirmations"), how often the bug has been seen, how often players never
+reached it, and the build a fix was claimed against.
+
+Two queues bracket the list whenever they have anything in them.
+**Needs triage** prints first: bugs a playtester filed that your agent has not
+linked to your own tracker yet. **Never answered** prints last: bugs that have
+ridden three or more rounds with nobody answering either way — the agent is
+supposed to pin them, reach them with a setup step, or close them. Both are
+the agent's work, and both are visible here so you can see whether it is doing
+it.
+
+`--status open|fixed|verified|closed` prints one status only; without it you
+get open, fixed and verified, because closed issues are history. `--json`
 prints the machine-readable rows.
 
 Read-only, on purpose. Your agent files, claims, closes and reopens issues
 through the `qaping_issues` MCP tool while it runs the loop; this is the
 window you read it through. Nothing on the board costs credits — only rounds
-do — and nothing turns *verified* except a playtester answering "Gone" on a
-round filed after the fix was claimed.
+do — and nothing turns *verified* except playtesters answering "Gone" on a
+round filed after the fix was claimed, against the build that round played:
+two of them for a blocker or a major, one for a minor or cosmetic.
 
 ## Files qaping leaves in your repo
 

@@ -118,8 +118,13 @@ is built from it, and it is the only place a fix can ever be confirmed.
 |---|---|---|
 | `open` | you (`action:'create'`), or a playtester filing a bug from inside a round | the live state, and where a regression lands |
 | `fixed` | YOU only (`action:'fixed'`, `build` REQUIRED) | a CLAIM, not a verification |
-| `verified` | a PLAYTESTER only — a "Gone" on a round filed AFTER your claim | there is no verify action and there never will be |
+| `verified` | a PLAYTESTER only — enough "Gone" answers on a round filed AFTER your claim, against the build that claim named | there is no verify action and there never will be |
 | `closed` | you only (`action:'close'` + reason wontfix / invalid / duplicate / cannot_reproduce) | leaves the checklist; never turns green |
+
+Every attached issue gets ONE of four answers: **Still here**, **Gone**,
+**Couldn't test** (they reached it and still could not tell), **Didn't reach**
+(they never got to that part of the game). Only the first two say anything
+about the bug at all.
 
 A "Still here" on a `fixed` or `verified` issue REGRESSES it back to `open`
 and counts the regression. A "Gone" on an issue nobody claimed fixed changes
@@ -127,6 +132,45 @@ nothing — it may simply not have reproduced this session, and the board
 records that as a not-seen streak for you to act on (close it
 `cannot_reproduce` once you believe it).
 
+- **Green costs more than one player on anything serious.** A "Gone" on a
+  claimed fix banks ONE confirmation per distinct playtester: a `blocker` or a
+  `major` needs TWO before it turns `verified`, a `minor` or `cosmetic` needs
+  one. Under the bar the results say `1 of 2 confirmations` and the issue stays
+  amber — that is a fix HOLDING, not a fix that failed. Buy the second
+  confirmation with the next round; never re-claim to hurry it, because a fresh
+  claim resets the count to zero.
+- **A freshly verified issue rides one more round.** It comes back on the next
+  checklist labelled "verified last round — still gone?", then drops off for
+  good. A "Gone" there reconfirms and moves nothing; a "Still here" is a
+  regression, which is the only reason the lap exists.
+- **The checklist is sized to the session, and it rotates.** A round carries
+  `6 + 2 per five minutes` issues up to a ceiling of 20 — 8 on a 5-minute
+  round, 18 on a 30-minute one — in this order: pinned, then claimed-fixed,
+  then the confirmation lap, then open ones by severity and
+  least-recently-attached. That last key is the rotation: a minor filed weeks
+  ago comes back round instead of starving behind the blockers. The filing
+  result names exactly what it attached and what it left off — read it rather
+  than assuming the whole board rode.
+- **Pin the issues a round exists to answer (`issues` on the filing).** The
+  seqs you just claimed fixed, and anything the board reports as never
+  answered, go in the filing's `issues` array; they are placed ahead of even a
+  blocker. Never pin more than the round's own cap — an over-long pin list is
+  REFUSED, not trimmed, because the overflow would silently never be asked —
+  and never pin a seq that is closed or not on this board, which refuses the
+  filing too.
+- **Give every issue an `area` (MUST).** Set it on `create` (or repair it with
+  `edit`): one or two words a player recognises — "camp screen", "first
+  battle", "settings" — never a file, a class, or a system name. The checklist
+  GROUPS by area, so a player facing eighteen rows reads a route through the
+  game instead of a list, and a board of thirty bugs reads back to you as a map
+  of where this game breaks.
+- **Act on every "never answered" issue (MUST).** An issue attached to three or
+  more rounds that nobody has answered either way is not bad luck: players are
+  not reaching it, or cannot tell what it is asking. The results block and the
+  board both name them. Do exactly one of three things in the turn you read it
+  — pin it on the next filing, give that round a `setup` link and a step that
+  walks a player to it, or close it — and say in the report which you chose.
+  Letting it ride another checklist unread is the one option that is not open.
 - **The board is the source of truth for bugs; the dev's GitHub issues are
   the mirror (MUST).** File it on the board first, then `gh issue create` for
   the dev's own triage, then put that URL back on the board with
@@ -136,27 +180,37 @@ records that as a not-seen streak for you to act on (close it
   the steps live under, for the same reason: a stranger reads them
   mid-session on their own machine. "The shop closes when you press B twice",
   never "NRE in ShopController.OnClose". No file paths, no stack traces, no
-  ticket ids. Title ≤120 chars, body ≤1000.
-- **No build, no claim (MUST).** `action:'fixed'` takes the exact build URL
-  the NEXT round will play, and the claim happens BEFORE that round is filed.
-  A fix claimed after the round exists was not in the build that playtester
-  ran, so their answer cannot confirm it — the board leaves it amber and says
-  why.
-- **`game` on every playtest filing (MUST).** The board's open and
-  claimed-fixed issues — up to 12, claimed-fixed first — ride the round as
-  the playtester's checklist after free play. It costs no step budget, adds
-  ~30 seconds per issue inside est_minutes, and is the ONLY path to
+  ticket ids. Title ≤120 chars, body ≤1000, `area` ≤40.
+- **No build, no claim (MUST) — and it has to be THE build.** `action:'fixed'`
+  takes the exact build URL the NEXT round will play, and the claim happens
+  BEFORE that round is filed. A fix claimed after the round exists was not in
+  the build that playtester ran; a fix claimed
+  against a DIFFERENT build was not in it either. Either way the board leaves
+  it amber and says why, and the filing warns you the moment it spots the
+  mismatch.
+- **`game` on every playtest filing (MUST).** The board's live issues ride the
+  round as the playtester's checklist after free play. It costs no step budget,
+  adds ~30 seconds per issue inside est_minutes, and is the ONLY path to
   `verified`. Omit it and the round has no memory.
 - **Never leave a playtester-filed issue untriaged (MUST).** A bug reported
   from inside a round lands `open` with origin `reviewer`, and answering it
   is part of reporting that round — accept it, or close it duplicate /
-  invalid / cannot_reproduce.
+  invalid / cannot_reproduce. The board keeps that queue and prints it as
+  "Needs triage". Both the results and your own `create` name any live issue
+  that looks like the same bug ("possible duplicate of #4"): read the pair
+  before accepting, and if it is one, close the newer with `reason:'duplicate'`
+  and `duplicate_of_seq`.
 - **Where the checklist is answered today, honestly.** The Windows browser
-  runner renders it. Rounds answered in the reviewer app (macOS, iOS) and web
-  rounds carry the board but do not show it yet, so their issues come back
-  unanswered — which is not evidence about the bug. An issue nobody answered
-  never moves; never report an unanswered checklist as "no longer
-  reproducing".
+  runner renders it; so do the current Windows recorder app and the reviewer
+  app on macOS/iOS native rounds — but a playtester on an older build of
+  either sends no checklist at all, and WEB rounds render none by design.
+  Never infer this from the platform: the results say it per session. Four
+  kinds of silence, none of them interchangeable — "Didn't reach" (never got
+  there), "Couldn't test" (got there, still could not tell), a blank row (shown
+  the checklist, said nothing about this one), and `not shown to N players`
+  (that session's client never rendered a checklist, so its silence is evidence
+  of nothing whatsoever). An issue nobody answered never moves, and you
+  never report an unanswered checklist as "no longer reproducing".
 - Nothing on the board costs credits — only rounds do. `qaping issues <game>`
   reads the same board from the shell.
 
@@ -283,8 +337,12 @@ checks testimony-only — mark that in the plan and report at that grade.
 
 0. **Read the board.** `qaping_issues` with the plan's `game_slug` (action
    `list`): what is open, what you claimed fixed and is still waiting on a
-   playtester, what came back REGRESSED. This is the bug half of "what
-   happened since last time"; the ledger's last line is the check half.
+   playtester, what came back REGRESSED, and the two queues the board keeps
+   for you — "Needs triage" (playtester-filed bugs you never answered) and
+   "Never answered" (issues that have ridden three or more checklists with no
+   answer either way). Both are worked in this run, not noted for later. This
+   is the bug half of "what happened since last time"; the ledger's last line
+   is the check half.
 1. **Select.** Read the diff (or PR). Pick the checks it can plausibly affect,
    plus the always-run criticals (the critical-path block above) and every
    check the ledger left NOT-ASKED or Blocked last round. Tell the user which
@@ -322,21 +380,34 @@ checks testimony-only — mark that in the plan and report at that grade.
    by players in their own browser, phones included.
 5. **Claim fixes (MUST, before filing).** For every board issue this patch
    fixes: `qaping_issues` `action:'fixed'` with its `seq`, `build` set to the
-   exact URL this round will play, and a `note` written for the playtester
-   ("the shop stays open now"). Claim first, file second — a claim recorded
-   after the round exists cannot be confirmed by it, and the results say so
-   instead of turning it green. No build URL, no claim.
+   exact URL this round will play — the `/b/<slug>` or store URL you just
+   published, character for character — and a `note` written for the
+   playtester ("the shop stays open now"). Claim first, file second, and claim
+   against THE BUILD: a claim recorded after the round exists was not in what
+   that playtester ran, and a claim naming a DIFFERENT build was not in it
+   either. Both leave the issue amber; the filing prints the mismatch when it
+   sees one, and a "Gone" against another build verifies nothing. Re-claim
+   against the URL this round actually plays rather than spending the round on
+   an answer that cannot count. No build URL, no claim. Then pin what you
+   claimed (step 6).
 6. **File** ONE `qaping_playtest` per composed session, always with
    `questionnaire:'none'` — on a QA-PLAN round your checks are the questions;
    the standard instrument is a separate experience round (below), never a
    default — and always with `game` set to the plan's `game_slug` (MUST), so
    the board's live issues ride the round as the playtester's checklist.
+   Pin with `issues` (MUST when the round exists to settle something specific):
+   the seqs you claimed fixed in step 5, plus any the board lists as never
+   answered, ride ahead of even a blocker. Never pin more than the round
+   carries — 8 issues at 5 minutes, 18 at 30, 20 at the ceiling — because an
+   over-long pin list is REFUSED, not trimmed, and a seq that is closed or not
+   on this board refuses the filing too.
    A WEB session additionally files `require_evidence:'none'` (MUST) — left
    at its default, the finish silently demands a pinned
    screenshot-comment no step asked for. est_minutes is an
    honest sum of the steps' directed play — the service
-   accepts 5–30 minutes (10 is the standard session; outside that
-   range the filing is refused, not clamped), and the clock is play time:
+   accepts 5–120 minutes (10 is the standard session, and a QA-plan round
+   rarely earns more than 30; outside 5–120 the filing is refused, not
+   clamped), and the clock is play time:
    download/install happens before it starts. The authored steps MUST be:
    - **one step per selected check**, its text opening with the id token —
      `[spin-readable] …` — the plan prose rewritten as an observation
@@ -359,13 +430,13 @@ checks testimony-only — mark that in the plan and report at that grade.
      opens with a verifying option step ("Before this session: had you ever
      played this game before?" — yes / no / not sure);
    - **a recheck of a known bug is NEVER a step.** The board rides the
-     checklist: `game` on the filing attaches the open and claimed-fixed
-     issues, the playtester answers them (Still here / Gone / Couldn't test)
-     after free play, and that costs none of the step budget. Never author a
-     step that re-asks an issue already on the board — a step and a checklist
-     row about the same bug buy one answer twice — and prior findings stay
-     OUT of `instructions` entirely, so the rest of the pass is an
-     independent look;
+     checklist: `game` on the filing attaches the board's live issues, the
+     playtester answers each one (Still here / Gone / Couldn't test / Didn't
+     reach) after free play, and that costs none of the step budget. Never
+     author a step that re-asks an issue already on the board — a step and a
+     checklist row about the same bug buy one answer twice — and prior
+     findings stay OUT of `instructions` entirely, so the rest of the pass is
+     an independent look;
    - a closing **break-it slice** (~2–3 minutes) authored from the diff:
      "this patch changed X — try to break it: \<concrete abuse ideas from the
      diff>. Report the weirdest thing you saw AND list what you tried."
@@ -388,9 +459,9 @@ checks testimony-only — mark that in the plan and report at that grade.
    mismatch (the budget forcing cuts) fails loudly PRE-SPEND: batch another
    session or state the deferral out loud — never silently truncate. Then
    print `issues: <seqs attached>` from the filing's own result (it names the
-   checklist it built, and anything the 12-issue cap left off), or
-   `issues: none` on an empty board — so what this round RE-CHECKS is on the
-   record beside what it covers.
+   checklist it built, which of them you pinned, and anything the round's own
+   cap left off), or `issues: none` on an empty board — so what this round
+   RE-CHECKS is on the record beside what it covers.
 7. **Wait or park — decide now** (ground rule 1). WAIT: spawn a background
    task looping `qaping_wait` and keep working — foreground polling is the
    fallback. PARK: the filing already carried an explicit `deadline_seconds`
@@ -412,12 +483,42 @@ checks testimony-only — mark that in the plan and report at that grade.
      it is never the headline. (The iterate rule already says unresolved
      findings mean fix and refile — unresolved never headlines as PASS.)
    - **Issues line (MUST), under the headline.** One line read off the
-     results' issue block: `issues: #3 verified, #5 REGRESSED, 2 new` —
-     verified first, regressions next, then how many bugs playtesters filed
-     from inside the session. `issues: none moved` when the board rode along
-     and nothing changed; nothing at all when the round carried no `game`. A
-     REGRESSED issue is a failure of a fix you claimed: say so in words, in
-     the same breath as the headline.
+     results' issue block: `issues: #3 verified, #5 REGRESSED, #7 unreached,
+     2 new` — verified first, regressions next, then `unreached` for the
+     issues whose only answer was "Didn't reach" (nobody got to them: they
+     were not tested and the board did not move), then how many bugs
+     playtesters filed from inside the session. `issues: none moved` when the
+     board rode along and nothing changed; nothing at all when the round
+     carried no `game`. Two qualifiers from that block never get dropped on
+     the way into the line: `1 of 2 confirmations` means the fix HELD for that
+     player and needs one more — report it as holding, never as verified, and
+     buy the second with the next round; `not shown to N players` means those
+     sessions never rendered a checklist at all, so name that instead of
+     counting them as silence. A REGRESSED issue is a failure of a fix you
+     claimed: say so in words, in the same breath as the headline.
+   - **Mine the transcript for what nobody typed (MUST, wherever a transcript
+     exists).** Read every session's think-aloud transcript for bug-shaped
+     moments the typed answers never covered — "it didn't", "nothing
+     happened", "crashed", "stuck", "I can't", "again" — and file each as a
+     board issue (`action:'create'`) whose body QUOTES the player, in their
+     language, with an `area`, the round's `ping_id`, and the stamp the
+     transcript gave it sent as `time_ms` ([12:34] → 754000) so the report links
+     straight to that moment. The board IS the draft: never open a GitHub issue for a
+     transcript moment before it has been triaged on the board. Two limits,
+     both MUST: never file a moment the same session already reported in an
+     answer or a new bug — that is a duplicate of a row you already have — and
+     never file more than FIVE per session without asking the user first,
+     because a transcript is full of grumbling and a board nobody can read is
+     a board nobody re-checks. A round with no transcript (a Game Bar Windows
+     session, a web round) skips this step, and the report says the mining did
+     not happen rather than implying a clean transcript.
+   - **Work the board's two queues (MUST).** The results block ends with them.
+     `Needs triage: N` is playtester-filed bugs with no `external_ref` yet —
+     clear it by triaging (below). `Never answered` lists issues attached three
+     or more rounds that nobody has answered either way — for each one, pin it
+     on the next filing, give that round a `setup` link and a step that walks a
+     player to it, or close it, and name the choice in the report. Neither
+     queue survives a run untouched.
    - **One row per SELECTED check (MUST)**, keyed by id, outcome from
      \{Pass, Fail, Blocked, NOT-ASKED\}. "Couldn't test" and "Didn't reach this
      part" are Blocked, with the why. A check that reached the wire as more
@@ -438,17 +539,17 @@ checks testimony-only — mark that in the plan and report at that grade.
      `{"round_id": …, "report_url": …, "build": "<sha or hosted url>",
      "evidence_grade": …, "checks": [{"id": …, "outcome": …}],
      "issues": {"game": "<game_slug>", "verified": [3], "regressed": [5],
-     "new": [7, 8], "still_open": [2]}, "verdict": …, "credits": …,
-     "follow_ups": […]}`. The `issues` object is the board's movement this
-     round, by seq (omit it entirely when the round carried no `game`), and
-     `follow_ups` is NON-BUG follow-ups only from now on — a check to add, a
-     build affordance to write, a question to settle. A bug goes on the
-     board, where it is numbered, re-checked and closable; free text nobody
-     re-reads is where bugs went to die. `report_url` is the round's service
-     report page (the `report_url` the results tool returns — never a PR or
-     issue link). No evidence-link field, deliberately: signed recording URLs
-     expire in days, so durable evidence pointers live in the report/issues,
-     not the ledger. The ledger is machine truth;
+     "new": [7, 8], "unreached": [9], "still_open": [2]}, "verdict": …,
+     "credits": …, "follow_ups": […]}`. The `issues` object is the board's
+     movement this round, by seq (omit it entirely when the round carried no
+     `game`), and `follow_ups` is NON-BUG follow-ups only from now on — a
+     check to add, a build affordance to write, a question to settle. A bug
+     goes on the board, where it is numbered, re-checked and closable; free
+     text nobody re-reads is where bugs went to die. `report_url` is the
+     round's service report page (the `report_url` the results tool returns —
+     never a PR or issue link). No evidence-link field, deliberately: signed
+     recording URLs expire in days, so durable evidence pointers live in the
+     report/issues, not the ledger. The ledger is machine truth;
      `last_verified` stays in QA-PLAN.md as the dev-readable contract derived
      from it, and "carry findings forward" is a read of the last line's
      follow_ups, not prose archaeology.
@@ -470,10 +571,14 @@ checks testimony-only — mark that in the plan and report at that grade.
      results is a bug a playtester filed from inside the session, and it is
      answered before the report is finished: accept it (`gh issue create` for
      the dev's triage, then `qaping_issues` `action:'edit'` with
-     `external_ref` set to that URL), or close it — `duplicate` with
-     `duplicate_of_seq`, `invalid`, or `cannot_reproduce`. Never leave one
-     sitting; an untriaged board stops being worth reading, and the next
-     round re-asks a bug nobody decided about.
+     `external_ref` set to that URL, and an `area` if it arrived without one),
+     or close it — `duplicate` with `duplicate_of_seq`, `invalid`, or
+     `cannot_reproduce`. When the results flag one as a `possible duplicate of
+     #N`, read both rows before accepting: usually it is one, and closing the
+     newer with `reason:'duplicate'` keeps the checklist honest instead of
+     spending two rows of it on one bug. Never leave one sitting; an
+     untriaged board stops being worth reading, and the next round re-asks a
+     bug nobody decided about.
    - **A REGRESSED issue reopens its mirror (MUST).** The fix did not hold:
      `gh issue reopen <n>` on the GitHub issue, name it in the PR comment,
      and never claim `fixed` on it again without a new build to claim
@@ -483,11 +588,13 @@ checks testimony-only — mark that in the plan and report at that grade.
      the board row green — never `action:'close'` a verified issue to tidy
      up; closed is for what you decided about, not for what was confirmed.
    - Findings YOU file: one board issue per finding (`action:'create'`, in
-     player language, severity from consequence — `blocker` cannot play past
-     it / `major` / `minor` / `cosmetic`), then one `gh issue create` per
-     finding as the dev's own draft — never near-duplicates, never one issue
-     per symptom of the same bug — and `action:'edit'` the board row with the
-     `external_ref` you just created. Before reproduction the body carries
+     player language, with an `area`, severity from consequence — `blocker`
+     cannot play past it / `major` / `minor` / `cosmetic`, and remember a
+     blocker or major needs two playtesters to say Gone before its fix turns
+     verified), then one `gh issue create` per finding as the dev's own draft
+     — never near-duplicates, never one issue per symptom of the same bug —
+     and `action:'edit'` the board row with the `external_ref` you just
+     created. Before reproduction the body carries
      "observed once, unreproduced" plus that proposed severity. The label
      CONFIRMED is reserved for a targeted round or unambiguous in-round
      evidence; a CONFIRMED issue carries repro steps rebuilt from the
