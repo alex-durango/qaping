@@ -1,6 +1,6 @@
 <div align="center">
 <a href="https://qaping.dev">
-  <img alt="Qaping logo" src="./docs/icon.svg" width="120">
+  <img alt="Qaping logo" src="./docs/icon.svg?v=2" width="120">
 </a>
 
 <h1 align="center">Qaping</h1>

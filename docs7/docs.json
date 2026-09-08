@@ -9,11 +9,11 @@
     "dark": "#C9532A"
   },
   "logo": {
-    "light": "/icon.svg",
-    "dark": "/icon.svg",
+    "light": "/icon.svg?v=2",
+    "dark": "/icon.svg?v=2",
     "href": "https://qaping.dev"
   },
-  "favicon": "/icon.svg",
+  "favicon": "/icon.svg?v=2",
   "navigation": {
     "groups": [
       {
