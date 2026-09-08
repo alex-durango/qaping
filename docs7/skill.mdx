@@ -27,7 +27,7 @@ build.
     lease that keeps the round visible to new claimants. The moment a filing
     returns pending, SPAWN A BACKGROUND TASK that loops `qaping_wait` with the
     ping_id until results arrive, and keep working on other things — that is
-    the intended shape, the same as every pingfusi round. Only if your harness
+    the intended shape for a short playtest round. Only if your harness
     has no background tasks: keep polling in the foreground. A one-shot print
     mode where neither is possible is not a WAIT round at all — it is a PARK
     (below): file with an explicit `deadline_seconds`, record it with `qaping
@@ -211,6 +211,16 @@ records that as a not-seen streak for you to act on (close it
   (that session's client never rendered a checklist, so its silence is evidence
   of nothing whatsoever). An issue nobody answered never moves, and you
   never report an unanswered checklist as "no longer reproducing".
+- **A `self_run: true` result is YOU, not a playtester (MUST).** A developer can
+  run their own round from the round's page — free, and marked by the service.
+  Report it as the developer's own session in the same breath as its answers:
+  it is never independent evidence, it never counts toward the round's
+  playtester count, and a "Gone" it gives a claimed fix verifies nothing (the
+  board records it and moves on). What it CAN do is fail: a "Still here" from a
+  self-run regresses a fix you claimed, and a bug filed from one lands on the
+  board like any other. A round whose only results are self-runs has not been
+  playtested yet — say so in the headline instead of reporting it as a pass,
+  and file a real round before you tell the dev the fix holds.
 - Nothing on the board costs credits — only rounds do. `qaping issues <game>`
   reads the same board from the shell.
 

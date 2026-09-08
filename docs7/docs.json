@@ -28,6 +28,7 @@
   },
   "navbar": {
     "links": [
+      { "label": "GitHub", "href": "https://github.com/alex-durango/qaping" },
       { "label": "npm", "href": "https://www.npmjs.com/package/@qaping/cli" }
     ],
     "primary": { "type": "button", "label": "qaping.dev", "href": "https://qaping.dev" }
