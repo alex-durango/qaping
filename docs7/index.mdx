@@ -1,76 +1,119 @@
 ---
-title: "qaping — automatic QA for your game"
+title: "Qaping"
 sidebarTitle: "Overview"
 ---
 
-Your coding agent writes the QA plan, ships every patch's build to real human
-playtesters on their own hardware, and tells you what broke. You ask once:
+Automatic QA for your game.
 
-```
-Set up QA for my game.
-```
+[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Watch the demo](https://qaping.dev/qaping/demo.mp4) · [Report an issue](https://github.com/alex-durango/qaping/issues)
 
-and, for every patch after that:
+## About
 
-```
-Run QA on this patch.
-```
+Qaping connects your coding agent to real human playtesters. Your agent writes
+the QA plan, publishes each patch's build, and reports what players found.
 
-## Install
+- **Check what changed.** The agent reads the diff and picks the parts of your
+  game that need another pass.
+- **Get real playtesting.** People play your build on their own hardware and
+  report what works, what breaks, and what they could not test.
+- **Verify the fix.** Bugs stay on your game's issue board across patches.
+  A fix is verified only after playtesters check it in a later build.
 
-```bash
+Works with **Claude Code, Cursor, and Codex**, for games on **Windows, macOS,
+iOS, and the web**.
+
+## Quickstart
+
+Set up Qaping for your coding agent with one command:
+
+```sh
 npx @qaping/cli setup
 ```
 
-`setup` wires qaping into your coding agent (Claude Code, Cursor or Codex —
-pass the name to pick one), installs the `qaping` skill and signs you in.
-Then open your game repo in that agent and ask for QA.
+Setup connects the MCP server, installs the Qaping skill, and signs you in.
+To choose an agent, append `claude-code`, `cursor`, or `codex` to the command.
 
-## What a run does
+Open your game repo in that agent and ask:
 
-1. **Reads the diff** and picks the checks in `QA-PLAN.md` the patch could
-   have broken.
-2. **Builds** with the one `build_command` recorded in the plan, and hosts
-   the build with `qaping publish-build` (or `qaping publish` for a
-   browser-playable game).
-3. **Files a round**: real playtesters claim it, play the build for the
-   minutes you asked for, and answer one typed outcome per check.
-4. **Reports** on the pull request — one row per check, evidence linked —
-   and files every bug on the game's issue board, so the next round re-checks
-   it. Each round carries as many of those bugs as its length allows, rotating
-   so nothing sits unchecked forever, and the playtester answers each one.
-   A fix your agent claims stays a claim until playtesters say the bug is
-   gone on a later round — two of them for anything serious — and only then
-   is it verified. `qaping issues <game>` prints that board.
-5. **Promotes** checks that settle into repo code tests, so QA gets cheaper
-   with every patch.
+```text
+Set up QA for my game.
+```
 
-The check is the unit: its id rides from the plan onto the wire, into the
-report and into the round ledger. See [the QA-PLAN.md format](/qa-plan).
+After your next change:
 
-## What comes back
+```text
+Run QA on this patch.
+```
 
-| platform | how the tester plays | evidence |
+Your agent keeps the plan in `QA-PLAN.md`, so checks and past results stay with
+your game. QA runs from your coding agent when you ask it to run a patch.
+
+## Example prompts
+
+| When | Ask your agent | What you get |
 |---|---|---|
-| Windows | their own Steam client or your hosted zip | screen recording; think-aloud transcript when they used the qaping recorder |
-| macOS | Steam page, notarized download or hosted zip | screen + voice recording, inline transcript |
-| iOS | TestFlight public link or App Store page | screen + voice recording, inline transcript |
-| web | the URL you published, in their browser | the answers to your steps — no recording |
+| Starting a game | `Set up QA for my game.` | A QA plan based on your game and build process. |
+| Shipping a patch | `Run QA on this patch.` | Targeted playtests and a report on the pull request. |
+| Checking a regression | `Did this patch break anything? Use qaping.` | Checks selected from the diff, with a result for each one. |
+| Testing a build | `Playtest this build: <build URL>. Use qaping.` | Feedback from real players on the build you share. |
+| Rechecking a fix | `I fixed the save bug. Run QA and have players recheck it.` | Player confirmations attached to the bug on your issue board. |
 
-Rounds are duration-billed: **2 credits per minute of play, per playtester**.
-There are currently **no free playtests**. Subscribe or buy credits at
-[qaping.dev](https://qaping.dev/#pricing) before filing a round.
-The agent states the estimate before it files anything.
+## How it works
 
-## The pieces
+1. **Plan the checks.** The agent reads your diff and `QA-PLAN.md`, then selects
+   the behavior the patch could have changed.
+2. **Publish the build.** It uses your recorded build command and hosts the
+   playable output, or uses your existing Steam, TestFlight, or build link.
+3. **Players test it.** Real playtesters claim the round, follow the checks,
+   and report a result for each one.
+4. **Read the report.** Your agent summarizes the results on the pull request,
+   links available evidence, and tracks bugs on the game's issue board.
+5. **Carry it forward.** Later rounds recheck claimed fixes. Checks that can be
+   reliably automated can become code tests with your agreement.
 
-- [CLI commands](/commands) — `setup`, `publish-build`, `rounds`,
-  `results` and the rest.
-- [QA-PLAN.md format](/qa-plan) — the file the agent authors
-  and you own.
-- [The qaping skill](/skill) — the full instructions your
-  agent follows: ground rules, the setup half, the run half.
+Serious fixes require confirmation from **two playtesters**; minor and cosmetic
+fixes require one. An agent marking a bug fixed does not mark it verified.
 
-The service side lives at [qaping.dev](https://qaping.dev). The four MCP tools it
-exposes — `qaping_playtest`, `qaping_results`, `qaping_wait`,
-`qaping_issues` — are the whole wire. MIT licensed.
+## Supported platforms
+
+| Platform | How players open the game | What comes back |
+|---|---|---|
+| Windows | Steam or your hosted ZIP | Answers and a screen recording; transcript when the Qaping recorder was used. |
+| macOS | Steam, a notarized download, or your hosted ZIP | Answers, screen and voice recording, and a transcript. |
+| iOS | A public TestFlight link or App Store page | Answers, screen and voice recording, and a transcript. |
+| Web | Your published game's URL | Answers to your checks; no recording or transcript. |
+
+## CLI commands
+
+Your agent handles the QA loop. These commands let you inspect its work:
+
+```sh
+qaping builds                 # List your hosted native builds
+qaping rounds                 # Check rounds waiting for results
+qaping results <round_id>     # Read a round's results
+qaping issues <game>          # See bugs and verification status
+```
+
+See the [complete CLI reference](/commands) for build publishing,
+round management, and JSON output.
+
+## Pricing
+
+Rounds cost **2 credits per minute of play, per playtester**. For example,
+two players testing for 10 minutes use 40 credits. Your agent states the
+estimate before filing a round.
+
+There are currently **no free playtests**. [Subscribe or buy credits](https://qaping.dev/#pricing)
+before starting a round.
+
+## Documentation and support
+
+- [Documentation](https://alex-durango-qaping.docs7.io) — setup, commands, and the QA loop.
+- [QA-PLAN.md format](/qa-plan) — the checks your agent maintains in your game repo.
+- [The Qaping skill](https://alex-durango-qaping.docs7.io/skill) — the full workflow your agent follows.
+- [Issues](https://github.com/alex-durango/qaping/issues) — bug reports and feature requests.
+- [Discord](https://discord.gg/pUKzftBUTY) — questions and community support.
+
+## License
+
+[MIT](https://github.com/alex-durango/qaping/blob/main/LICENSE)

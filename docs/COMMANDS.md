@@ -1,0 +1,138 @@
+# qaping — CLI commands
+
+Everything the `qaping` binary does. Your agent runs most of these for you;
+`setup`, `builds` and `rounds` are the ones you will type yourself.
+
+```
+qaping setup [claude-code|cursor|codex] [--force]
+qaping remove [--client <c>]
+qaping publish-build <game.zip> --platform windows|macos
+qaping builds
+qaping builds rm <slug>
+qaping publish <built-dir>
+qaping wait <ping_id> [--timeout <seconds>]
+qaping results <ping_id> [--json]
+qaping rounds [--json] [--offline] [--file <path>]
+qaping rounds add <ping_id> [--platform windows|macos|ios] [--build <url>]
+                            [--minutes N] [--deadline-seconds N]
+                            [--game <slug>] [--checks a,b,c]
+                            [--note "<patch>"] [--json]
+qaping rounds rm <ping_id> [--json]
+qaping issues <game> [--json] [--status open|fixed|verified|closed]
+qaping whoami
+qaping version
+```
+
+## Getting in and out
+
+### `qaping setup [claude-code|cursor|codex] [--force]`
+
+Registers the qaping MCP server with your coding agent, installs the `qaping`
+skill and its rule, and signs you in (a browser window opens once). With no
+client name it detects what is installed. `--force` rewrites an existing
+entry.
+
+### `qaping remove [--client <c>]`
+
+Removes qaping's MCP entry, skill and rule from the client. It touches only
+qaping's own state — nothing else you have installed, and not your login.
+
+### `qaping whoami`
+
+Which account this machine is signed in as. Results are scoped to the account
+that filed the round, so check this before deciding a round is gone.
+
+### `qaping version`
+
+Prints the installed version.
+
+## Hosting a build
+
+### `qaping publish-build <game.zip> --platform windows|macos`
+
+Uploads a zipped native build and prints the `/b/<slug>` URL a round is filed
+against. You hold a small number of hosted builds at a time; the oldest is
+listed first by `qaping builds`.
+
+### `qaping builds` / `qaping builds rm <slug>`
+
+Lists the hosted builds you hold, or deletes one now to free its slot.
+
+### `qaping publish <built-dir>`
+
+Hosts a browser-playable game's built output and prints the public URL. Web
+rounds are filed with that URL and no platform.
+
+## Rounds
+
+### `qaping wait <ping_id> [--timeout <seconds>]`
+
+Waits on a filed round, renewing the lease that keeps it visible to new
+playtesters, and prints the results when they land. The agent normally runs
+this in a background task.
+
+### `qaping results <ping_id> [--json]`
+
+One passive fetch, no waiting. Exit code `0` means results are in, `2` means
+still pending, `1` anything else (expired, not yours, unreachable).
+
+### `qaping rounds`
+
+The parked rounds this repo is owed, read from `qa-open-rounds.json` at the
+repo root, each with its live status. `--offline` skips the status lookup;
+`--file` points at another ledger.
+
+### `qaping rounds add <ping_id> …`
+
+Records a round the agent chose to park — an overnight run, a slow native
+claim — so a later session collects it instead of filing a duplicate. Add
+`--build`, `--minutes`, `--deadline-seconds`, `--game`, `--checks` and
+`--note` so the record explains itself; `--game` is the QA plan's
+`game_slug`, so the session that collects the round knows which issue board
+it moved.
+
+### `qaping rounds rm <ping_id>`
+
+Forgets a parked round once it is collected or expired.
+
+## The issue board
+
+### `qaping issues <game> [--json]`
+
+Prints the game's issue board: every bug that outlived a round, with its
+status — open, fixed (you claim it is fixed), verified (a playtester
+confirmed it is gone), closed. Each bug prints as one compact line — number,
+status, severity, the part of the game it lives in, the title — over a second
+line of counters: how close a claimed fix is to being confirmed ("1 of 2
+confirmations"), how often the bug has been seen, how often players never
+reached it, and the build a fix was claimed against.
+
+Two queues bracket the list whenever they have anything in them.
+**Needs triage** prints first: bugs a playtester filed that your agent has not
+linked to your own tracker yet. **Never answered** prints last: bugs that have
+ridden three or more rounds with nobody answering either way — the agent is
+supposed to pin them, reach them with a setup step, or close them. Both are
+the agent's work, and both are visible here so you can see whether it is doing
+it.
+
+`--status open|fixed|verified|closed` prints one status only; without it you
+get open, fixed and verified, because closed issues are history. `--json`
+prints the machine-readable rows.
+
+Read-only, on purpose. Your agent files, claims, closes and reopens issues
+through the `qaping_issues` MCP tool while it runs the loop; this is the
+window you read it through. Nothing on the board costs credits — only rounds
+do — and nothing turns *verified* except playtesters answering "Gone" on a
+round filed after the fix was claimed, against the build that round played:
+two of them for a blocker or a major, one for a minor or cosmetic.
+
+## Files qaping leaves in your repo
+
+| file | what it is | commit it? |
+|---|---|---|
+| `QA-PLAN.md` | the checks this game must pass; the agent authors, you own | yes — see [the format](QA-PLAN-FORMAT.md) |
+| `qa-rounds.jsonl` | append-only history, one line per finished round | yes |
+| `qa-open-rounds.json` | rounds filed and not yet collected | no — gitignore it |
+
+The issue board is not a file: it lives on the service, one board per game,
+and `qaping issues <game>` reads it. The plan's `game_slug` is what names it.

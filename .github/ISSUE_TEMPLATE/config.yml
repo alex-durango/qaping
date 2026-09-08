@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://alex-durango-qaping.docs7.io
+    about: Setup, CLI commands, and the QA workflow.
+  - name: Ask the community
+    url: https://discord.gg/pUKzftBUTY
+    about: Questions and help using Qaping.

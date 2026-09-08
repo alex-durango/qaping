@@ -1,0 +1,28 @@
+name: Bug report
+description: Report a problem with Qaping setup, commands, or playtests.
+title: "[Bug] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the command or workflow that led to the problem.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, coding agent, and the output of qaping version.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or screenshots
+      description: Include a round ID if relevant. Remove tokens, account details, and private build links.
