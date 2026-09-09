@@ -13,7 +13,7 @@
   <a href="https://discord.gg/pUKzftBUTY"><img alt="Join Discord" src="https://img.shields.io/badge/discord-join-5865F2.svg?logo=discord&amp;logoColor=white"></a>
 </p>
 
-[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Report an issue](https://github.com/alex-durango/qaping/issues)
+[Website](https://qaping.dev) · [Documentation](https://qaping.dev/docs) · [Watch the demo](https://qaping.dev/qaping/demo.mp4) · [Report an issue](https://github.com/alex-durango/qaping/issues)
 
 </div>
 
@@ -119,7 +119,6 @@ qaping rounds                 # Unprocessed rounds on your account
 qaping rounds --all           # Include processed history
 qaping rounds --game <slug>    # Resume one game's QA work
 qaping rounds import          # One-time migration of older local round files
-qaping rounds                 # Check this repo's locally recorded rounds
 qaping results <round_id>     # Read a round's results
 qaping issues <game>          # See bugs and verification status
 ```
@@ -133,15 +132,18 @@ Rounds cost **2 credits per minute of play, per playtester**. For example,
 two players testing for 10 minutes use 40 credits. Your agent states the
 estimate before filing a round.
 
+Qaping has its own credit balance and subscription. Credits from another product
+do not pay for a Qaping playtest.
+
 There are currently **no free playtests**. [Subscribe or buy credits](https://qaping.dev/#pricing)
 before starting a round.
 
 ## Documentation and support
 
-- [Documentation](https://alex-durango-qaping.docs7.io) — setup, commands, and the QA loop.
+- [Documentation](https://qaping.dev/docs) — setup, commands, and the QA loop.
 - [Install on Windows](docs/WINDOWS.md) — Node.js, PowerShell, agent setup, and troubleshooting.
 - [QA-PLAN.md format](docs/QA-PLAN-FORMAT.md) — the checks your agent maintains in your game repo.
-- [The Qaping skill](https://alex-durango-qaping.docs7.io/skill) — the full workflow your agent follows.
+- [The Qaping skill](https://qaping.dev/docs/skill) — the full workflow your agent follows.
 - [Issues](https://github.com/alex-durango/qaping/issues) — bug reports and feature requests.
 - [Discord](https://discord.gg/pUKzftBUTY) — questions and community support.
 
