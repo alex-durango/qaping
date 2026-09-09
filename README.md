@@ -13,7 +13,7 @@
   <a href="https://discord.gg/pUKzftBUTY"><img alt="Join Discord" src="https://img.shields.io/badge/discord-join-5865F2.svg?logo=discord&amp;logoColor=white"></a>
 </p>
 
-[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Report an issue](https://github.com/alex-durango/qaping/issues)
+[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Watch the demo](https://qaping.dev/qaping/demo.mp4) · [Report an issue](https://github.com/alex-durango/qaping/issues)
 
 </div>
 
@@ -38,7 +38,19 @@ standard questionnaire.
 
 ## Quickstart
 
-Set up Qaping for your coding agent with one command:
+Install [Node.js](https://nodejs.org/en/download) first (Node 24 LTS recommended),
+then set up Qaping for your coding agent.
+
+**Windows — PowerShell:**
+
+```powershell
+npx.cmd @qaping/cli@latest setup
+```
+
+See [Install on Windows](docs/WINDOWS.md) for a walkthrough from a fresh PC,
+agent-specific commands, and troubleshooting.
+
+**macOS, Linux, or WSL:**
 
 ```sh
 npx @qaping/cli setup
@@ -125,6 +137,7 @@ before starting a round.
 ## Documentation and support
 
 - [Documentation](https://alex-durango-qaping.docs7.io) — setup, commands, and the QA loop.
+- [Install on Windows](docs/WINDOWS.md) — Node.js, PowerShell, agent setup, and troubleshooting.
 - [QA-PLAN.md format](docs/QA-PLAN-FORMAT.md) — the checks your agent maintains in your game repo.
 - [The Qaping skill](https://alex-durango-qaping.docs7.io/skill) — the full workflow your agent follows.
 - [Issues](https://github.com/alex-durango/qaping/issues) — bug reports and feature requests.

@@ -3,6 +3,9 @@
 Everything the `qaping` binary does. Your agent runs most of these for you;
 `setup`, `builds` and `rounds` are the ones you will type yourself.
 
+On Windows PowerShell, use `qaping.cmd` wherever this reference says `qaping`.
+For first-time setup, follow [Install on Windows](WINDOWS.md).
+
 ```
 qaping setup [claude-code|cursor|codex] [--force]
 qaping remove [--client <c>]

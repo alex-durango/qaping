@@ -18,7 +18,7 @@
     "groups": [
       {
         "group": "Start here",
-        "pages": ["index", "commands"]
+        "pages": ["index", "windows", "commands"]
       },
       {
         "group": "The QA loop",
