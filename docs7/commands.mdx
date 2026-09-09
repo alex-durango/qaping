@@ -16,6 +16,7 @@ qaping publish <built-dir>
 qaping wait <ping_id> [--timeout <seconds>]
 qaping results <ping_id> [--json]
 qaping rounds [--json] [--offline] [--file <path>]
+qaping rounds --all [--game <slug>] [--limit 1-100] [--cursor <next_cursor>] [--json]
 qaping rounds add <ping_id> [--platform windows|macos|ios] [--build <url>]
                             [--minutes N] [--deadline-seconds N]
                             [--game <slug>] [--checks a,b,c]
@@ -84,6 +85,25 @@ still pending, `1` anything else (expired, not yours, unreachable).
 The parked rounds this repo is owed, read from `qa-open-rounds.json` at the
 repo root, each with its live status. `--offline` skips the status lookup;
 `--file` points at another ledger.
+
+### `qaping rounds --all`
+
+Lists saved playtest rounds from your account, even from a fresh directory
+with no local records. `--remote` is an alias. Includes pending, complete and
+expired rounds, with their IDs, game, build URL, filing time and report link.
+Use `--game <slug>` for one game; omit it to include older rounds filed
+without a game slug.
+
+Pages hold 50 rounds by default (`--limit 1-100`). `--json` returns a
+`rounds` array and `next_cursor`; pass that cursor with `--cursor` to fetch
+older rounds. The text output prints the next-page command when needed.
+Listing never edits either local file or renews a lease. A network or login
+failure is an error, not an empty account.
+
+On resume, match server IDs against `qa-open-rounds.json` and `qa-rounds.jsonl`
+before filing replacements or reporting a completed round again. Recover a
+missing round with `qaping results <ping_id>` and restore only work belonging
+to this repo. See [the recovery workflow](/qa-plan#rounds-still-open--qa-open-roundsjson).
 
 ### `qaping rounds add <ping_id> …`
 

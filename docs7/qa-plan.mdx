@@ -176,6 +176,23 @@ PARKED: filed with an explicit long deadline, then recorded in
 opposite of the ledger and never merges with it: mutable OPEN state, one entry
 per round still owed, emptied as rounds land. It is not history — gitignore it.
 
+The server keeps every successfully filed round independently of this file.
+Use `qaping rounds --all` (or `--remote`) to find them from any directory, or
+`qaping rounds --all --game solar-drift --json` for one game's rounds. A page
+includes each round's `ping_id`, current status, game, build URL, platform,
+filing time, deadline, session counts and report URL. It includes completed
+and expired rounds too. The default page size is 50 (`--limit 1-100`);
+pass the returned `next_cursor` as `--cursor` for older rounds.
+
+On resume, compare server IDs with both local files before filing anything
+new. A round already in `qa-rounds.jsonl` has been collected. Restore only
+missing work belonging to this repo, preserve local notes/checks, and recover
+check IDs from the actual results rather than guessing. Omit `--game` when
+recovering older rounds filed without a slug. Listing is read-only: it never
+rewrites either file or renews a lease, and a failed fetch is an error, not an
+empty account. The endpoint is `GET /api/rounds?game=<slug>&limit=50&cursor=…`,
+authenticated with the same account token the CLI already uses.
+
 ## Maintenance rules
 
 - Every run updates the run checks' `state` and `last_verified` from typed

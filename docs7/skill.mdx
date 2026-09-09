@@ -12,10 +12,9 @@ the plan onto the wire, into the report, and into the round ledger. Over
 patches, checks migrate from human rounds to repo code tests, so QA gets
 cheaper. Checks are what the game must always do; BUGS are what it does wrong
 right now, and they live on the game's issue board, where a fix you claim
-turns verified only when a playtester says it is gone. All service contact
-goes through four MCP tools — `qaping_playtest`, `qaping_results`,
-`qaping_wait`, `qaping_issues` — plus `qaping publish-build` for hosting the
-build.
+turns verified only when a playtester says it is gone. The four MCP tools run the
+loop — `qaping_playtest`, `qaping_results`, `qaping_wait`, `qaping_issues`.
+The CLI also hosts builds and discovers saved rounds with `qaping rounds --all`.
 
 ## Ground rules (read before filing anything)
 
@@ -78,14 +77,39 @@ build.
 ## Open rounds — collect FIRST
 
 Before ANY qaping work in a repo — a new run, a plan edit, a plain "did it
-come back yet?" — read `qa-open-rounds.json` at the repo root. `qaping rounds`
-lists it with each round's live status; without the CLI, call `qaping_results`
-once per recorded `ping_id`. The file is this, and nothing else:
+come back yet?" — check BOTH server rounds and local workflow state:
+
+1. Run `qaping rounds --all --game <game_slug> --json`, using the plan's slug.
+   Follow `next_cursor` with `--cursor <next_cursor>` until the relevant
+   history is covered. Pages hold 50 rounds by default (`--limit 1-100`).
+   Omit `--game` to search the whole account, including older rounds filed
+   without a slug.
+2. Read `qa-open-rounds.json` and `qa-rounds.jsonl` at the repo root. Match by
+   `ping_id` (the history ledger calls it `round_id`). A server round absent
+   from the open file is NOT a new round to file: recover its existing ID.
+   A round already in the history ledger has been collected; do not append
+   or report it twice merely because it remains in the server listing.
+3. Fetch outstanding results with `qaping results <ping_id>` or
+   `qaping_results`. Recover game/build/filing time from the listing and
+   check IDs from the actual results and plan. Do not invent lost patch
+   notes or coverage. Restore open records only for work still owed by THIS
+   repo, preserving existing notes and checks.
+
+`--all` (`--remote` also works) reads the server even from a fresh directory;
+it never writes local files or renews a lease. It includes pending, complete
+and expired rounds. A network or login error is NOT an empty account: resolve
+it before filing replacements. The listing contains only the current login's
+playtests and may include other games: identify this repo's rounds by game or
+build before adopting them.
+
+Bare `qaping rounds` still lists the local file with live status; without
+the CLI, call `qaping_results` once per recorded `ping_id`, but that alone
+cannot discover missing IDs. The open file is this, and nothing else:
 
 ```json
 {"rounds": [{"ping_id": "<uuid>", "filed_at": "<ISO>", "platform": "windows",
   "build": "<the /b/<slug> or store URL>", "est_minutes": 10,
-  "deadline_seconds": 86400, "checks": ["boot-to-menu"],
+  "deadline_seconds": 86400, "game": "solar-drift", "checks": ["boot-to-menu"],
   "note": "<the patch this round covers>"}]}
 ```
 

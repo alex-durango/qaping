@@ -103,13 +103,24 @@ Your agent handles the QA loop. These commands let you inspect its work:
 
 ```sh
 qaping builds                 # List your hosted native builds
-qaping rounds                 # Check rounds waiting for results
+qaping rounds --all           # Find saved rounds across your account
+qaping rounds --all --game <slug> # Find one game's rounds after a lost session
+qaping rounds                 # Check this repo's locally recorded rounds
 qaping results <round_id>     # Read a round's results
 qaping issues <game>          # See bugs and verification status
 ```
 
 See the [complete CLI reference](docs/COMMANDS.md) for build publishing,
 round management, and JSON output.
+
+## Pricing
+
+Rounds cost **2 credits per minute of play, per playtester**. For example,
+two players testing for 10 minutes use 40 credits. Your agent states the
+estimate before filing a round.
+
+There are currently **no free playtests**. [Subscribe or buy credits](https://qaping.dev/#pricing)
+before starting a round.
 
 ## Documentation and support
 
