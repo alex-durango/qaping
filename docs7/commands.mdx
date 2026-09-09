@@ -18,13 +18,13 @@ qaping builds rm <slug>
 qaping publish <built-dir>
 qaping wait <ping_id> [--timeout <seconds>]
 qaping results <ping_id> [--json]
-qaping rounds [--json] [--offline] [--file <path>]
-qaping rounds --all [--game <slug>] [--limit 1-100] [--cursor <next_cursor>] [--json]
-qaping rounds add <ping_id> [--platform windows|macos|ios] [--build <url>]
-                            [--minutes N] [--deadline-seconds N]
-                            [--game <slug>] [--checks a,b,c]
-                            [--note "<patch>"] [--json]
-qaping rounds rm <ping_id> [--json]
+qaping rounds [--game <slug>] [--all|--processed] [--limit 1-100] [--cursor <cursor>] [--json]
+qaping rounds show <id>
+qaping rounds claim <id> [--token <uuid>]
+qaping rounds release <id> --token <uuid>
+qaping rounds context <id> --revision N --data <json-file|->
+qaping rounds complete <id> --token <uuid> --revision N --responses <id,id|none> --report <json-file|->
+qaping rounds import [--directory <path>] [--dry-run] [--json]
 qaping issues <game> [--json] [--status open|fixed|verified|closed]
 qaping whoami
 qaping version
@@ -85,41 +85,63 @@ still pending, `1` anything else (expired, not yours, unreachable).
 
 ### `qaping rounds`
 
-The parked rounds this repo is owed, read from `qa-open-rounds.json` at the
-repo root, each with its live status. `--offline` skips the status lookup;
-`--file` points at another ledger.
+Lists unprocessed playtest work from the server, from any directory. Optional
+`--game <slug>` scopes it to the game in QA-PLAN.md. No local ledger is read.
+A server error fails loudly; it never falls back to stale local records.
 
 ### `qaping rounds --all`
 
-Lists saved playtest rounds from your account, even from a fresh directory
-with no local records. `--remote` is an alias. Includes pending, complete and
-expired rounds, with their IDs, game, build URL, filing time and report link.
-Use `--game <slug>` for one game; omit it to include older rounds filed
-without a game slug.
+Includes processed history; `--remote` is an alias. `--processed` lists only
+processed reports. `--json` returns round facts plus private workflow context,
+report, legacy history and processing state. Pages hold up to 50 rounds by default (report-heavy pages can be smaller);
+`--limit 1-100` changes the size and `--cursor <next_cursor>` follows older pages.
 
-Pages hold 50 rounds by default (`--limit 1-100`). `--json` returns a
-`rounds` array and `next_cursor`; pass that cursor with `--cursor` to fetch
-older rounds. The text output prints the next-page command when needed.
-Listing never edits either local file or renews a lease. A network or login
-failure is an error, not an empty account.
+### `qaping rounds show <id>`
 
-On resume, match server IDs against `qa-open-rounds.json` and `qa-rounds.jsonl`
-before filing replacements or reporting a completed round again. Recover a
-missing round with `qaping results <ping_id>` and restore only work belonging
-to this repo. See [the recovery workflow](/qa-plan#rounds-still-open--qa-open-roundsjson).
+Reads a round's full private workflow, previous reports and current response ids.
+The original build and game come from the round itself. Reading never marks it
+processed. All individual workflow commands return JSON.
 
-### `qaping rounds add <ping_id> …`
+### `qaping rounds claim <id> [--token <uuid>]`
 
-Records a round the agent chose to park — an overnight run, a slow native
-claim — so a later session collects it instead of filing a duplicate. Add
-`--build`, `--minutes`, `--deadline-seconds`, `--game`, `--checks` and
-`--note` so the record explains itself; `--game` is the QA plan's
-`game_slug`, so the session that collects the round knows which issue board
-it moved.
+Claims a ready/expired report for collection. Returns a collector token, revision
+and response ids to retain BEFORE fetching results. Claims last 30 minutes;
+repeat with the same token at least every 20 minutes to renew. Another collector
+cannot take a live claim. Reuse the same token if a reply is lost (the CLI prints
+it with the error). A crashed session's claim expires automatically.
 
-### `qaping rounds rm <ping_id>`
+### `qaping rounds release <id> --token <uuid>`
 
-Forgets a parked round once it is collected or expired.
+Releases a claim without marking work processed or removing the round.
+
+### `qaping rounds context <id> --revision N --data <json-file|->`
+
+Replaces an unprocessed round's private context: optional `checks`, `note`,
+`commit` and `pr_url`. Read `show` first and preserve fields you want to keep.
+A stale revision or active collector is a conflict. For new rounds, send this
+as `qa_context` on the playtest filing so it is saved atomically from the start.
+
+### `qaping rounds complete <id> --token <uuid> --revision N --responses <id,id|none> --report <json-file|->`
+
+Saves the agent's report and marks it processed atomically. Pass the token,
+revision and response ids captured before reviewing results; `none` represents
+an empty array. The report requires `evidence_grade`, `verdict`, typed `checks`
+and unresolved non-bug `follow_ups`; `external_refs` and `summary` are optional.
+See [the report format](/qa-plan#round-state-and-history-live-on-the-server).
+The report is an agent interpretation, never a replacement for player evidence.
+
+An identical retry is safe. A conflict means the claim expired or results changed;
+read and claim again. Late evidence reopens work while preserving the old report.
+External PR comments should use a stable round-id marker so retries update them.
+
+### `qaping rounds import [--directory <path>] [--dry-run]`
+
+Imports legacy `qa-open-rounds.json` and `qa-rounds.jsonl` from the current or
+specified directory once. It validates both before writes, preserves original
+records on the server, and never rewrites the files. Retry after an interruption;
+already-imported rounds are skipped. Unknown or wrong-account ids fail loudly.
+After import the originals are backups, not live inputs. `rounds add` and `rounds rm`
+are retired and fail with migration instructions instead of changing local state.
 
 ## The issue board
 
@@ -157,8 +179,7 @@ two of them for a blocker or a major, one for a minor or cosmetic.
 | file | what it is | commit it? |
 |---|---|---|
 | `QA-PLAN.md` | the checks this game must pass; the agent authors, you own | yes — see [the format](/qa-plan) |
-| `qa-rounds.jsonl` | append-only history, one line per finished round | yes |
-| `qa-open-rounds.json` | rounds filed and not yet collected | no — gitignore it |
+| `qa-rounds.jsonl`, `qa-open-rounds.json` | legacy backups only; import once | existing files are preserved |
 
 The issue board is not a file: it lives on the service, one board per game,
 and `qaping issues <game>` reads it. The plan's `game_slug` is what names it.

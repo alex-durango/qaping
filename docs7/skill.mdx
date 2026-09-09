@@ -8,13 +8,13 @@ Two jobs, one file. SETUP authors `QA-PLAN.md` — the committed list of checks
 this game must pass. RUN executes it per patch: pick the affected checks,
 build, ship the build to real human playtesters, and report ONE typed outcome
 per check — never a vibe. The check is the unit of value: its id rides from
-the plan onto the wire, into the report, and into the round ledger. Over
+the plan onto the wire, into the report, and into the server history. Over
 patches, checks migrate from human rounds to repo code tests, so QA gets
 cheaper. Checks are what the game must always do; BUGS are what it does wrong
 right now, and they live on the game's issue board, where a fix you claim
 turns verified only when a playtester says it is gone. The four MCP tools run the
 loop — `qaping_playtest`, `qaping_results`, `qaping_wait`, `qaping_issues`.
-The CLI also hosts builds and discovers saved rounds with `qaping rounds --all`.
+The CLI hosts builds and manages server workflow with `qaping rounds`.
 
 ## Ground rules (read before filing anything)
 
@@ -29,21 +29,20 @@ The CLI also hosts builds and discovers saved rounds with `qaping rounds --all`.
     the intended shape for a short playtest round. Only if your harness
     has no background tasks: keep polling in the foreground. A one-shot print
     mode where neither is possible is not a WAIT round at all — it is a PARK
-    (below): file with an explicit `deadline_seconds`, record it with `qaping
-    rounds add <ping_id>`, say what is pending, and ask to be re-invoked to
+    (below): file with an explicit `deadline_seconds` and `qa_context`, say what is pending, and ask to be re-invoked to
     collect it — never promise polling you cannot do (an ended session cannot
-    poll). A round already filed on the default lease is recorded anyway,
-    flagged as likely to expire unclaimed.
+    poll). A round already filed on the default lease is saved on the server anyway;
+    flag it as likely to expire unclaimed.
   - **PARK — long or overnight rounds.** For a session nobody will sit
     through — an overnight run, `n_target > 1` on a small pool, a native round
     whose claim is slow, an explicit "check tomorrow", or a one-shot mode —
     file with an explicit `deadline_seconds` sized to the span you are willing
     to wait (the tool schema states the ceiling) plus an `idempotency_key`,
-    then IMMEDIATELY record it: `qaping rounds add <ping_id> --build <url>
-    --minutes N --checks <ids> --note "<patch>"`, which writes
-    `qa-open-rounds.json` at the repo root (gitignore it — open state, not
-    history). Then tell the user exactly what is pending and what will collect
-    it, and end the turn cleanly.
+    and `qa_context: {checks: [...], note: "<patch>", commit: "<sha>",
+    pr_url: "<PR URL>"}` (omit unknown optional fields). The round and this
+    private context are saved in ONE transaction. No separate add or local
+    write is needed. Tell the user what is pending and what will collect it,
+    and end the turn cleanly.
   - **A recorded parked round is an honest pending end; an unrecorded "I'll
     check later" never is.** Never park on the default lease: with no explicit
     `deadline_seconds` an unwaited round leaves the feed within minutes and
@@ -76,59 +75,55 @@ The CLI also hosts builds and discovers saved rounds with `qaping rounds --all`.
 
 ## Open rounds — collect FIRST
 
-Before ANY qaping work in a repo — a new run, a plan edit, a plain "did it
-come back yet?" — check BOTH server rounds and local workflow state:
+Before ANY qaping work in a repo — a new run, plan edit, or "did it come
+back yet?" — run `qaping rounds --game <game_slug> --json`. This lists
+unprocessed work on the server. Follow `next_cursor` until the queue is
+covered. `--all` includes processed history; `--processed` reads history only.
+Omit `--game` to discover older rounds without a slug. Identify those by their
+real build and saved context; never invent missing notes or adopt another game's work.
 
-1. Run `qaping rounds --all --game <game_slug> --json`, using the plan's slug.
-   Follow `next_cursor` with `--cursor <next_cursor>` until the relevant
-   history is covered. Pages hold 50 rounds by default (`--limit 1-100`).
-   Omit `--game` to search the whole account, including older rounds filed
-   without a slug.
-2. Read `qa-open-rounds.json` and `qa-rounds.jsonl` at the repo root. Match by
-   `ping_id` (the history ledger calls it `round_id`). A server round absent
-   from the open file is NOT a new round to file: recover its existing ID.
-   A round already in the history ledger has been collected; do not append
-   or report it twice merely because it remains in the server listing.
-3. Fetch outstanding results with `qaping results <ping_id>` or
-   `qaping_results`. Recover game/build/filing time from the listing and
-   check IDs from the actual results and plan. Do not invent lost patch
-   notes or coverage. Restore open records only for work still owed by THIS
-   repo, preserving existing notes and checks.
+- **Still pending:** leave it on the server, say what is waiting, and never
+  file another round for the same checks/build. A read never renews its lease.
+- **READY or expired:** claim it with `qaping rounds claim <ping_id>` before
+  collecting. The JSON returns a collector `token`, `workflow.revision` and
+  `response_ids`. Another agent cannot collect while that claim is live.
+  Keep those values for completion; renew at least every 20 minutes by repeating
+  `claim` with `--token <token>` (the claim lasts 30 minutes). A lost response
+  is retried with the SAME token; the CLI's error prints the token to reuse.
+- Fetch `qaping results <ping_id>` / `qaping_results` and perform the full RUN
+  report ritual. `qaping rounds show <ping_id>` reads private context and any
+  earlier report. Save the final agent report with `qaping rounds complete`
+  as described below; reading results alone NEVER marks work processed.
+- **Expired:** report the actual results, including partial results if any.
+  Mark unanswered selected checks NOT-ASKED. Complete the report, then offer a
+  refile with an appropriate deadline. Expiry does not erase evidence.
+- **Another collector holds the round:** leave it to that collector. If a
+  session dies its claim expires; a later session can recover the work.
+  Release deliberately with `qaping rounds release <id> --token <token>`.
 
-`--all` (`--remote` also works) reads the server even from a fresh directory;
-it never writes local files or renews a lease. It includes pending, complete
-and expired rounds. A network or login error is NOT an empty account: resolve
-it before filing replacements. The listing contains only the current login's
-playtests and may include other games: identify this repo's rounds by game or
-build before adopting them.
+A failed login, missing round or network error is NOT an empty queue. Check
+`qaping whoami` and resolve the error before filing a replacement. A processing
+conflict means something changed: read the workflow and results again. A late
+response or changed transcript reopens a processed round while preserving the
+previous report. Collect the new evidence and update the existing PR comment.
+Before posting comments or filing external issues, search for the round id and
+existing board external_refs. Use a stable `qaping-round:<ping_id>` marker in PR
+comments and update a matching comment on retry. A server claim cannot make an
+external GitHub write atomic with report completion.
 
-Bare `qaping rounds` still lists the local file with live status; without
-the CLI, call `qaping_results` once per recorded `ping_id`, but that alone
-cannot discover missing IDs. The open file is this, and nothing else:
+**Upgrade once:** if this repo has `qa-open-rounds.json` or `qa-rounds.jsonl`,
+run `qaping rounds import --dry-run`, then `qaping rounds import`. It validates
+both files before any request, imports owned rounds once, and preserves the
+original files byte-for-byte. Unknown or wrong-account IDs fail loudly; fix
+the login and retry. The server retains old records under `workflow.legacy`,
+including historical verdicts and follow_ups. Import never overwrites a live
+build, status, report or newer patch context. It does not invent a game for
+old rounds without one. After import, STOP reading or writing those files.
+They are archival backups only. Never delete them automatically.
 
-```json
-{"rounds": [{"ping_id": "<uuid>", "filed_at": "<ISO>", "platform": "windows",
-  "build": "<the /b/<slug> or store URL>", "est_minutes": 10,
-  "deadline_seconds": 86400, "game": "solar-drift", "checks": ["boot-to-menu"],
-  "note": "<the patch this round covers>"}]}
-```
-
-- **READY** (results are in): collect it BEFORE starting new work — the full
-  RUN report ritual (evidence line, computed headline, per-check rows, PR
-  comment, issues, plan updates, ledger append), then
-  `qaping rounds rm <ping_id>`.
-- **Still pending**: say so plainly, with what it is still waiting on, and
-  leave it recorded. Never refile it and never start a second round on the
-  same checks while it is open.
-- **Expired or unreadable**: report that honestly — an expired round bought
-  nothing — then `qaping rounds rm <ping_id>` and offer a refile (a fresh
-  build URL if the old one expired, and a longer `deadline_seconds`).
-- **Not visible from this login** reads identically to gone, and is not the
-  same thing: results are asker-scoped, so a round filed from another account
-  is alive and invisible. Check `qaping whoami` before deleting that record.
-
-`qa-open-rounds.json` is mutable OPEN state; `qa-rounds.jsonl` is append-only
-history written after results land. Never merge the two.
+The server is the machine truth for execution history. `QA-PLAN.md` remains
+the dev-readable contract defining the checks; its old `state` and
+`last_verified` fields are historical annotations, never inputs to run selection.
 
 ## The issue board — bugs live here
 
@@ -309,9 +304,8 @@ that assumes they read your repo.
    a renamed slug orphans every issue filed under the old one.
    Then one `##` section per check — the heading is the check's short name —
    opening with a fenced yaml block of `id` (stable slug, never renamed),
-   `rung: human | code`, `state` (`unverified | passed | ambiguous | failing`
-   — new checks start `unverified`), `origin` ("authored" or the round id that
-   last changed it), `last_verified` (date or build tag), and optionally
+   `rung: human | code`, `origin` ("authored" or the round id that
+   last changed the check definition), and optionally
    `setup` (the link or flag that forces this check's precondition — see
    "Make the build testable"), followed by the steps as numbered prose a
    playtester who has never seen the game can follow. Author each check to
@@ -375,11 +369,13 @@ checks testimony-only — mark that in the plan and report at that grade.
    for you — "Needs triage" (playtester-filed bugs you never answered) and
    "Never answered" (issues that have ridden three or more checklists with no
    answer either way). Both are worked in this run, not noted for later. This
-   is the bug half of "what happened since last time"; the ledger's last line
-   is the check half.
+   is the bug half of "what happened since last time"; server reports are the check half: read `qaping rounds --processed --game
+   <game_slug> --json`, including imported `workflow.legacy.history`. Carry
+   unresolved non-bug follow_ups forward in the next report; omit one only
+   after it is done or explicitly deferred with a reason.
 1. **Select.** Read the diff (or PR). Pick the checks it can plausibly affect,
    plus the always-run criticals (the critical-path block above) and every
-   check the ledger left NOT-ASKED or Blocked last round. Tell the user which
+   check the latest server reports left NOT-ASKED or Blocked. Tell the user which
    checks run and why.
 2. **Compose sessions.** Partition the selected checks by required state —
    fresh-install / progression / settings-mutating — and put state-mutating
@@ -484,6 +480,8 @@ checks testimony-only — mark that in the plan and report at that grade.
    - hardware verification where it matters: needs beyond keyboard+mouse go
      up front in `instructions` AND an explicit step asks which input device
      was actually used, with options.
+   Send `qa_context` with this session's selected check ids and known patch,
+   commit and PR context in the SAME playtest call.
    **Filing gate (MUST):** print `this round covers: <ids>` per session and
    assert the ids — unioned across every session this run files — equal the
    Select step's list BEFORE calling qaping_playtest. The wire keeps only
@@ -497,14 +495,14 @@ checks testimony-only — mark that in the plan and report at that grade.
    checklist it built, which of them you pinned, and anything the round's own
    cap left off), or `issues: none` on an empty board — so what this round
    RE-CHECKS is on the record beside what it covers.
-7. **Wait or park — decide now** (ground rule 1). WAIT: spawn a background
-   task looping `qaping_wait` and keep working — foreground polling is the
-   fallback. PARK: the filing already carried an explicit `deadline_seconds`
-   sized to the span, so record it — `qaping rounds add <ping_id> --build
-   <url> --minutes N --checks <ids> --note "<patch>"` — tell the user what is
-   pending, and end the turn; a later session collects it. A promise to check
-   later is never a wait, and never a substitute for the record.
-8. **Report** from `qaping_results`:
+7. **Wait or park — decide now** (ground rule 1). Every filing carries
+   `qa_context` with the selected check ids and known patch/commit/PR context.
+   WAIT: spawn a background task looping `qaping_wait` and keep working —
+   foreground polling is the fallback. PARK: the filing already carried an
+   explicit `deadline_seconds` sized to the span and is saved on the server.
+   Tell the user what is pending and end the turn; a later session collects it.
+   A promise to check later is never a wait. No local round record is needed.
+8. **Report** from `qaping_results`, after claiming the round as above:
    - **Evidence line first (MUST).** Every report opens with its grade:
      `Evidence: recording + transcript` (macOS/iOS, or a Windows result with
      `transcript_status:'ok'`) / `Evidence: recording only` (a Windows result
@@ -563,40 +561,36 @@ checks testimony-only — mark that in the plan and report at that grade.
      ("PASS — N unverified") — never plain Pass over a Blocked sub-step. A
      check whose precondition came back unverified or disproven is VOID —
      report it as Blocked ("VOID: precondition unverified"),
-     never as a pass or fail, and leave `last_verified` untouched. A selected check that never made the wire or
+     never as a pass or fail, and do not treat it as a verification. A selected check that never made the wire or
      never came back is NOT-ASKED and carries forward into the next filing
      automatically. Cite [mm:ss] where a transcript or recording exists; on a
      web round cite the step answers — there are no timestamps to cite.
    - PR comment via `gh pr comment`: evidence line, the computed verdict
      sentence first, then the per-check rows, then credits spent.
-   - **Ledger append (MUST).** Append ONE JSON line to `qa-rounds.jsonl` at
-     the game repo root, committed alongside the plan updates:
-     `{"round_id": …, "report_url": …, "build": "<sha or hosted url>",
-     "evidence_grade": …, "checks": [{"id": …, "outcome": …}],
-     "issues": {"game": "<game_slug>", "verified": [3], "regressed": [5],
-     "new": [7, 8], "unreached": [9], "still_open": [2]}, "verdict": …,
-     "credits": …, "follow_ups": […]}`. The `issues` object is the board's
-     movement this round, by seq (omit it entirely when the round carried no
-     `game`), and `follow_ups` is NON-BUG follow-ups only from now on — a
-     check to add, a build affordance to write, a question to settle. A bug
-     goes on the board, where it is numbered, re-checked and closable; free
-     text nobody re-reads is where bugs went to die. `report_url` is the
-     round's service report page (the `report_url` the results tool returns —
-     never a PR or issue link). No evidence-link field, deliberately: signed
-     recording URLs expire in days, so durable evidence pointers live in the
-     report/issues, not the ledger. The ledger is machine truth;
-     `last_verified` stays in QA-PLAN.md as the dev-readable contract derived
-     from it, and "carry findings forward" is a read of the last line's
-     follow_ups, not prose archaeology.
-   - **Close a parked round (MUST).** In the same step as the ledger append,
-     drop this round from `qa-open-rounds.json` with
-     `qaping rounds rm <ping_id>`, so the open-state file never outlives the
-     round it names.
-   - Update `QA-PLAN.md` from the outcomes: Pass → `state: passed` and
-     `last_verified` this build/date; a Fail with hard evidence → `failing`;
-     a Fail that could be dirty state or tester noise → `ambiguous`;
-     Blocked/NOT-ASKED touch nothing. A check changed because of this round
-     records the round id as `origin`.
+   - **Save the report on the server (MUST).** Send JSON with
+     `qaping rounds complete <ping_id> --token <token> --revision <revision>
+     --responses <comma-separated response_ids, or none> --report -`
+     (JSON on stdin; a temporary JSON file also works). Use the token, revision
+     and response ids captured BEFORE reading the results. The report is:
+     `{"evidence_grade":"testimony only (web round)","verdict":"PASS",
+     "checks":[{"id":"boot-to-menu","outcome":"Pass"}],
+     "follow_ups":[],"external_refs":["<PR comment URL>"],"summary":"<report text>"}`.
+     `checks` includes every selected id exactly once. `follow_ups` holds
+     unresolved NON-BUG follow-ups — bugs stay on the issue board. Optional
+     per-check `note` explains Blocked/VOID or a failure. Optional `summary`
+     preserves the rendered report, including the issues line. Build, credits,
+     player answers and issue transitions remain service facts; do not submit
+     copies as top-level report fields. This report is the AGENT'S interpretation,
+     never player evidence, and cannot verify a board issue.
+     Completion atomically saves the report and marks it processed. Retry the
+     EXACT same payload/token on an uncertain reply; it cannot create a second
+     report. On 409, read and claim again: a response or transcript may have
+     arrived. Never reuse an old report over new evidence without reviewing it.
+     Previous reports remain in `workflow.report_history`; late evidence
+     reopens work instead of silently disappearing. Do not write a local ledger.
+   - Update `QA-PLAN.md` only when check definitions change; record the source
+     round as `origin` for such an edit. Read execution outcomes and verification
+     history from server reports, not local `state` or `last_verified` fields.
    - **QA memory (standing rule, not just here)**: whenever the developer
      mentions — in any conversation — something that should always be tested,
      a fragile area, or a QA lesson learned, offer to record it as a check
@@ -658,7 +652,7 @@ round: never two links in one round — links in step text are inert on the
 phone and `instructions` go unread in-review, so a second URL simply never
 gets opened. When a check needs TWO states compared (with/without a hook,
 old build vs new), file TWO paired rounds with the SAME steps, one per
-state, each state forced by its own round `url` (the ledger's `build` field
+state, each state forced by its own round `url` (the server round's `build` field
 keeps the old build recoverable), and compare the answers yourself in the
 report. Caveat it: different testers played each side, and a tester told to
 hunt changes reports noise as change. Native builds pair the same way, one
@@ -681,7 +675,7 @@ unreliable" and never average them into a comparison.
 
 When a check has passed and is mechanically assertable — a save file loads, a
 config parses, an asset path resolves — offer to write a normal test in the
-repo's own test suite; the ledger's per-check pass history is the evidence
+repo's own test suite; the server's per-check report history is the evidence
 that justifies the offer. On the dev's yes: write the test, flip the check's
 `rung` to `code`, keep the prose (it documents intent) and add a `test:` line
 naming the test file. `rung: code` checks then run in the dev's own CI for

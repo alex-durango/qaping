@@ -115,8 +115,10 @@ Your agent handles the QA loop. These commands let you inspect its work:
 
 ```sh
 qaping builds                 # List your hosted native builds
-qaping rounds --all           # Find saved rounds across your account
-qaping rounds --all --game <slug> # Find one game's rounds after a lost session
+qaping rounds                 # Unprocessed rounds on your account
+qaping rounds --all           # Include processed history
+qaping rounds --game <slug>    # Resume one game's QA work
+qaping rounds import          # One-time migration of older local round files
 qaping rounds                 # Check this repo's locally recorded rounds
 qaping results <round_id>     # Read a round's results
 qaping issues <game>          # See bugs and verification status
@@ -146,3 +148,6 @@ before starting a round.
 ## License
 
 [MIT](LICENSE)
+
+Round context, processing state, reports and follow-ups live on the server.
+`QA-PLAN.md` defines the checks in your repo; local round ledgers are no longer required.

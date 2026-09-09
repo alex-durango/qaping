@@ -38,9 +38,7 @@ opens with a fenced yaml block, then the steps as prose:
 ```yaml
 id: save-loads            # stable slug — never reused, never renamed
 rung: human               # human | code
-state: unverified         # unverified | passed | ambiguous | failing
 origin: authored          # "authored", or the round id that minted/last changed it
-last_verified: 2026-08-25 # date or build tag of the last passing verification
 setup: "?save=campaign-mid"  # optional: the link/flag that forces this check's precondition
 ```
 
@@ -49,11 +47,10 @@ setup: "?save=campaign-mid"  # optional: the link/flag that forces this check's 
   check becomes ONE id-tagged step with typed verdict options, so end the
   steps in an observation ask ("describe what you saw"), never a
   confirmation ("confirm it appears").
-- **`state` is the check's verdict history**: `unverified` (never verified on
-  the current behavior), `passed` (last verified answer was Pass),
-  `ambiguous` (a fail that could be dirty state or tester noise — refiles
-  alone as a targeted round), `failing` (a fail backed by hard evidence or a
-  targeted round). Blocked/VOID outcomes change nothing here.
+- **Execution history lives on the server.** Read typed outcomes from
+  `qaping rounds --processed --game <game_slug> --json`. Old `state` and
+  `last_verified` annotations in existing plans are historical only; stop
+  updating or consulting them as live facts. No status synchronization is needed.
 - **`setup` names the test affordance** that forces the check's precondition —
   a URL param (`?fresh=1`, `?state=<checkpoint>`), a flag, a bundled-fixture
   load control. At filing time the hook rides the ROUND's `url` — the review
@@ -82,9 +79,7 @@ setup: "?save=campaign-mid"  # optional: the link/flag that forces this check's 
 ```yaml
 id: save-loads
 rung: human
-state: unverified
 origin: authored
-last_verified: never
 setup: "?save=campaign-mid"
 ```
 
@@ -126,78 +121,88 @@ A check and the bug that came from it stay linked through the issue's
 optional `area` — one or two words a player recognises, like "camp screen" —
 which is how the checklist groups itself into a route through the game.
 
-## The round ledger — qa-rounds.jsonl
+## Round state and history live on the server
 
-Beside the plan, at the game repo root, sits `qa-rounds.jsonl`: one JSON line
-appended per round, committed alongside the plan updates —
-
-```json
-{"round_id": "…", "report_url": "…", "build": "<sha or hosted url>",
- "evidence_grade": "…", "checks": [{"id": "…", "outcome": "…"}],
- "issues": {"game": "solar-drift", "verified": [3], "regressed": [5],
-  "new": [7], "unreached": [9], "still_open": [2]},
- "verdict": "…", "credits": 20, "follow_ups": ["…"]}
-```
-
-Outcomes are `Pass | Fail | Blocked | NOT-ASKED` — a VOID (precondition
-unverified/disproven) is recorded as `Blocked` with a "VOID: …" note in the
-report, never its own enum value. `report_url` is the round's service report
-page (what the results tool returns), never a PR or issue link. There is no
-evidence-link field, deliberately: signed recording URLs expire in days.
-The ledger is the machine truth of what was asked and answered, per check,
-per round; the plan's `last_verified` and `state` are derived from it and
-stay the dev-readable contract. `issues` is what this round did to the issue
-board, by number (omitted when the round carried no `game`); `unreached` is
-the issues whose only answer was "Didn't reach" — carried, shown, and never
-got to. `follow_ups` is NON-BUG follow-ups only — a check to add, a build
-affordance to write, a question to settle; bugs go on the board, where they
-are numbered and re-checked. Open `follow_ups` are what the next filing must
-carry forward.
-
-## Rounds still open — qa-open-rounds.json
-
-A playtest may run for many hours, so a round the agent cannot sit through is
-PARKED: filed with an explicit long deadline, then recorded in
-`qa-open-rounds.json` (same directory) so a LATER session collects it —
+Every successfully filed playtest is recorded automatically. Send private
+`qa_context` at filing time so context and round are saved atomically:
 
 ```json
-{"rounds": [{"ping_id": "<uuid>", "filed_at": "<ISO>", "platform": "windows",
-  "build": "<the hosted or store URL>", "est_minutes": 10,
-  "deadline_seconds": 86400, "game": "solar-drift",
-  "checks": ["<check ids>"], "note": "<the patch this round covers>"}]}
+{"checks":["save-loads"],"note":"Save format migration", "commit":"<git SHA>",
+ "pr_url":"https://github.com/example/game/pull/42"}
 ```
 
-`qaping rounds` lists it with each round's live status, `qaping rounds add`
-(with `--game` for the board this round carries) records one,
-`qaping rounds rm` drops it once collected. This file is the
-opposite of the ledger and never merges with it: mutable OPEN state, one entry
-per round still owed, emptied as rounds land. It is not history — gitignore it.
+The fields are optional; include the selected check ids for every QA-plan
+round. The server's `game`, build URL, filing time, deadline, player results
+and billing remain the original facts. Patch notes are private to the developer
+and never appear in player instructions or the public feed.
 
-The server keeps every successfully filed round independently of this file.
-Use `qaping rounds --all` (or `--remote`) to find them from any directory, or
-`qaping rounds --all --game solar-drift --json` for one game's rounds. A page
-includes each round's `ping_id`, current status, game, build URL, platform,
-filing time, deadline, session counts and report URL. It includes completed
-and expired rounds too. The default page size is 50 (`--limit 1-100`);
-pass the returned `next_cursor` as `--cursor` for older rounds.
+`qaping rounds --game <slug>` lists unprocessed work. Use `--all` for all
+history (`--remote` remains an alias) or `--processed` for completed agent
+reports. `qaping rounds show <id>` includes context, the current report,
+previous reports, imported history and current `response_ids`. Follow
+`next_cursor` for older pages (50 by default, `--limit 1-100`). Omit `--game`
+for old rounds without a slug. A failed fetch is an error, not an empty queue.
 
-On resume, compare server IDs with both local files before filing anything
-new. A round already in `qa-rounds.jsonl` has been collected. Restore only
-missing work belonging to this repo, preserve local notes/checks, and recover
-check IDs from the actual results rather than guessing. Omit `--game` when
-recovering older rounds filed without a slug. Listing is read-only: it never
-rewrites either file or renews a lease, and a failed fetch is an error, not an
-empty account. The endpoint is `GET /api/rounds?game=<slug>&limit=50&cursor=…`,
-authenticated with the same account token the CLI already uses.
+Player completion and agent processing are separate. Read-only results do
+not mark a report processed. Claim a ready or expired round before collecting:
+
+```sh
+qaping rounds claim <id>
+qaping results <id>
+qaping rounds complete <id> --token <token> --revision <revision> --responses <id,id|none> --report report.json
+```
+
+The claim returns the token, revision and response ids. Keep those from BEFORE
+reading results. A claim lasts 30 minutes; repeat `claim --token <token>` to
+renew it, or `release <id> --token <token>` to stop collecting. Another agent
+cannot take a live claim. An expired claim can be recovered after a crash.
+
+The report is the agent's interpretation, stored separately from player evidence:
+
+```json
+{"evidence_grade":"testimony only (web round)","verdict":"PASS",
+ "checks":[{"id":"save-loads","outcome":"Pass"}],
+ "follow_ups":["Add a controller check"],"external_refs":[],"summary":"The report text"}
+```
+
+Outcomes are `Pass | Fail | Blocked | NOT-ASKED`. A VOID precondition is
+`Blocked` with a `note` explaining why. Every selected check appears exactly
+once. `follow_ups` contains unresolved NON-BUG work; bugs belong on the issue
+board. `external_refs` and `summary` are optional. Report links are obtained
+from the server listing; build and billing facts are not copied into this record.
+Signed recording URLs expire, so use durable report or issue links in reports.
+
+Completion saves the report and marks work processed in one transaction.
+Retry the exact request after an uncertain reply. A conflict requires fresh
+results and workflow state; never overwrite it blindly. New results or a changed
+transcript reopen work without discarding earlier reports. Use the round id
+as a stable marker in external PR comments so recovery updates an existing
+comment instead of posting it twice.
+
+## Importing older local files
+
+`qa-open-rounds.json` and `qa-rounds.jsonl` are retired. To move existing records:
+
+```sh
+qaping rounds import --dry-run
+qaping rounds import
+```
+
+The import validates both files before any write and imports each owned round
+once. It retains original metadata and history under `workflow.legacy`, including
+old verdicts and follow-ups, without overwriting server builds, statuses, reports
+or newer context. Completed historical records mark terminal rounds processed;
+pending player work stays unprocessed. A missing/wrong-account id is an error:
+check `qaping whoami`, fix it and retry. Old rounds without a game remain unassigned.
+Both files remain byte-for-byte intact as backups; never delete them automatically.
+After a successful import, stop reading and writing them. A fresh repo needs neither.
 
 ## Maintenance rules
 
-- Every run updates the run checks' `state` and `last_verified` from typed
-  outcomes (Pass stamps both; Blocked/VOID/NOT-ASKED touch neither);
-  findings-driven edits record the round id as `origin`.
+- Save execution outcomes and follow-ups on the server. Only definition changes
+  edit the plan; findings-driven edits record the round id as `origin`.
 - New checks start `rung: human` (unless mechanically assertable — then
-  `rung: code` with a repo test written at entry), `state: unverified`,
-  `origin: authored`.
+  `rung: code` with a repo test written at entry), `origin: authored`.
 - Promotion (human → code) and any deletion/demotion happen only with the
   developer's explicit agreement.
 - **QA memory**: the plan accretes from conversation, not just QA runs — when
