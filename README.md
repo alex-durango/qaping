@@ -13,7 +13,7 @@
   <a href="https://discord.gg/pUKzftBUTY"><img alt="Join Discord" src="https://img.shields.io/badge/discord-join-5865F2.svg?logo=discord&amp;logoColor=white"></a>
 </p>
 
-[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Watch the demo](https://qaping.dev/qaping/demo.mp4) · [Report an issue](https://github.com/alex-durango/qaping/issues)
+[Website](https://qaping.dev) · [Documentation](https://alex-durango-qaping.docs7.io) · [Report an issue](https://github.com/alex-durango/qaping/issues)
 
 </div>
 
