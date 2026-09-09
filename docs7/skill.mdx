@@ -400,10 +400,11 @@ checks testimony-only — mark that in the plan and report at that grade.
    against the URL this round actually plays rather than spending the round on
    an answer that cannot count. No build URL, no claim. Then pin what you
    claimed (step 6).
-6. **File** ONE `qaping_playtest` per composed session, always with
-   `questionnaire:'none'` — on a QA-PLAN round your checks are the questions;
-   the standard instrument is a separate experience round (below), never a
-   default — and always with `game` set to the plan's `game_slug` (MUST), so
+6. **File** ONE `qaping_playtest` per composed session. The standard 11-item
+   player-experience questionnaire is required on every playtest, including
+   QA-PLAN rounds; it cannot be disabled. Omit `questionnaire` or send
+   `questionnaire:'standard'`. Your checks are appended after it. Always
+   set `game` to the plan's `game_slug` (MUST), so
    the board's live issues ride the round as the playtester's checklist.
    Pin with `issues` (MUST when the round exists to settle something specific):
    the seqs you claimed fixed in step 5, plus any the board lists as never
@@ -462,10 +463,10 @@ checks testimony-only — mark that in the plan and report at that grade.
    **Filing gate (MUST):** print `this round covers: <ids>` per session and
    assert the ids — unioned across every session this run files — equal the
    Select step's list BEFORE calling qaping_playtest. The wire keeps only
-   the FIRST 20 steps_result rows and a play directive is prepended, so with
-   `questionnaire:'none'` budget at most 19 authored steps per session (8 if
-   the standard questionnaire rides) — rows past 20 are answered by the
-   tester and silently dropped at finish, which is why this gate exists. A
+   the FIRST 20 steps_result rows. The play directive and required 11-item
+   questionnaire occupy 12, so budget at most 8 authored steps per session,
+   including hardware, precondition and break-it questions. Larger lists are
+   rejected before filing to keep answers from being silently dropped at finish. A
    mismatch (the budget forcing cuts) fails loudly PRE-SPEND: batch another
    session or state the deferral out loud — never silently truncate. Then
    print `issues: <seqs attached>` from the filing's own result (it names the
@@ -639,11 +640,13 @@ report. Caveat it: different testers played each side, and a tester told to
 hunt changes reports noise as change. Native builds pair the same way, one
 build per round — re-publish the previous zip if its /b/\<slug> expired.
 
-## The experience round (opt-in, never a default)
+## Player-experience scores (every round)
 
-The standard 11-item player-experience questionnaire never rides a QA-PLAN
-round. Offer it separately, at milestones, as an experience round: no checks
-attached, questionnaire left on, n_target up to 3 players, priced
+The standard 11-item player-experience questionnaire is required on every
+round, alongside any QA-PLAN checks. Report its scores separately from the
+per-check outcomes: a rating never proves that a check passed. At milestones,
+additional coverage can be an experience round with no custom checks and
+n_target up to 3 players, priced
 transparently (est_minutes × 2 × players — state it first). Single-tester
 scores are trend data — meaningful only after 3+ rounds on the same game,
 never compared across testers or builds at n=1. If 8 or more of the 11 scale

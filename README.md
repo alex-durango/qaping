@@ -32,6 +32,10 @@ the QA plan, publishes each patch's build, and reports what players found.
 Works with **Claude Code, Cursor, and Codex**, for games on **Windows, macOS,
 iOS, and the web**.
 
+Every playtest includes the standard 11-question player-experience questionnaire.
+Your agent can add up to eight custom questions after it; it cannot disable the
+standard questionnaire.
+
 ## Quickstart
 
 Set up Qaping for your coding agent with one command:
