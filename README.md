@@ -13,7 +13,7 @@
   <a href="https://discord.gg/pUKzftBUTY"><img alt="Join Discord" src="https://img.shields.io/badge/discord-join-5865F2.svg?logo=discord&amp;logoColor=white"></a>
 </p>
 
-[Website](https://qaping.dev) · [Documentation](https://qaping.dev/docs) · [Report an issue](https://github.com/alex-durango/qaping/issues)
+[Website](https://qaping.dev) · [Documentation](https://qaping.dev/docs) · [Watch the demo](https://qaping.dev/qaping/demo.mp4) · [Report an issue](https://github.com/alex-durango/qaping/issues)
 
 </div>
 
@@ -135,7 +135,8 @@ estimate before filing a round.
 Qaping has its own credit balance and subscription. Credits from another product
 do not pay for a Qaping playtest.
 
-There are currently **no free playtests**. [Subscribe or buy credits](https://qaping.dev/#pricing)
+New accounts receive **80 free Qaping credits** — enough for **one 40-minute
+playtest with one player**. No credit card is required. After that, [subscribe or buy credits](https://qaping.dev/#pricing)
 before starting a round.
 
 ## Documentation and support

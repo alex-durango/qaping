@@ -109,8 +109,10 @@ After your next change, ask:
 Run QA on this patch. Use qaping.
 ```
 
-There are **no free playtests**. [Subscribe or buy credits](https://qaping.dev/#pricing)
-before filing a round; your agent states the estimated cost first.
+New accounts receive **80 free Qaping credits** — enough for **one 40-minute
+playtest with one player**, with no credit card required. After that,
+[subscribe or buy credits](https://qaping.dev/#pricing). Your agent states the
+estimated cost before filing a round.
 
 When typing CLI commands from the other guides in PowerShell, use
 `qaping.cmd` in place of `qaping`. Quote file paths that contain spaces:
