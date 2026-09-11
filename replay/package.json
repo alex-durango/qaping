@@ -1,0 +1,71 @@
+{
+  "name": "@qaping/rig",
+  "version": "0.2.4",
+  "license": "MIT",
+  "homepage": "https://qaping.dev/docs/replay",
+  "description": "Record a controller or keyboard/mouse session and replay it against a Windows game, with screen capture, frame times and a run receipt.",
+  "keywords": [
+    "qaping",
+    "game-qa",
+    "playtest",
+    "regression",
+    "gamepad",
+    "xinput",
+    "vigem",
+    "presentmon",
+    "frame-time",
+    "windows",
+    "replay"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alex-durango/qaping.git",
+    "directory": "replay"
+  },
+  "type": "commonjs",
+  "bin": {
+    "qaping-rig": "bin/rig.js",
+    "qaping-replay": "bin/rig.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "Start Replay.cmd",
+    "Start Rig.cmd",
+    "scripts/start-desktop.ps1",
+    "lib/desktop.js",
+    "lib/video-tool.js",
+    "shims/desktop.cs",
+    "bin/rig.js",
+    "lib/cli.js",
+    "shims/padd.py",
+    "shims/xinput-tap.ps1",
+    "shims/keyboard-mouse.ps1",
+    "shims/keyboard-mouse.cs",
+    "lib/kbmscript.js",
+    "lib/keyboard-mouse.js",
+    "lib/build-fetch.js",
+    "lib/capture.js",
+    "lib/game-proc.js",
+    "lib/overlay.js",
+    "lib/pad.js",
+    "lib/padscript.js",
+    "lib/receipt.js",
+    "lib/report.js",
+    "lib/scheduler.js",
+    "lib/telemetry-presentmon.js",
+    "scripts/provision.ps1",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "bugs": {
+    "url": "https://github.com/alex-durango/qaping/issues"
+  },
+  "scripts": {
+    "test": "node --test test/rig.test.js"
+  }
+}

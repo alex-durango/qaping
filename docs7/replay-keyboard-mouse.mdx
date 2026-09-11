@@ -1,0 +1,317 @@
+---
+title: "Record and replay keyboard/mouse play"
+sidebarTitle: "Keyboard and mouse"
+---
+
+Play naturally once: move, jump, explore, open menus, build or break things.
+Replay saves your physical input and can replay that same session while making
+a video. You choose what to do; no prescribed movement sequence is required.
+Replay repeats those choices and timings. It does not learn to play or adapt to
+changes in the game.
+
+This walkthrough uses the **0.2.4 source snapshot**. npm still serves 0.1.0,
+which does not include keyboard/mouse support.
+
+## The easy way: desktop controls
+
+Download this repository with **Code → Download ZIP**, extract it, open the **replay** folder, and
+double-click **Start Replay.cmd**. It finds Node.js or downloads a verified local
+copy on first start; no Node install, process IDs or terminal commands are needed.
+You need Windows 10/11 x64 and your own installed game.
+
+1. Open the game in windowed/borderless mode. Preserve a baseline save and pause
+   at the starting point (see the save procedure below).
+2. Choose the game in the list. **Refresh** finds newly opened games.
+3. Choose **Moving the mouse… → Moves a cursor on screen** for pointer-driven games, including
+   games that draw their own cursor while hiding Windows’ cursor. Leave
+   **Turns my view** selected for mouse-look games. Click **Record new session**. Leave **Include video** checked for footage;
+   ffmpeg is downloaded and verified once if it is missing (161 MB). Uncheck it
+   for input-only recording. Setup can be cancelled with **Stop**.
+4. The app brings your chosen game forward once and shows a five-second countdown.
+   Release the controls, then play naturally when **REC** appears. **F8 stops**.
+5. The controls return with the saved take in **Saved sessions**. Names, files
+   and folders are automatic. A take with no physical input is reported as such.
+6. Save/close the game, preserve the changed save, and restore the complete baseline.
+   Reopen at the same camera, inventory and pause/menu state. Click **Refresh**,
+   choose the game and saved session, check the reset reminder, then **Replay selected**.
+7. Leave the controls alone during replay. It ends on its own; F8 aborts. Watch
+   the result with **Watch video**, and use **Open recordings** for the full files.
+
+The app keeps files in `Videos/Qaping Rig` under your user folder. Each session
+has its original `input.kbmscript.json`, capture sidecar, optional `human.mp4`,
+and a `replays` folder with separate runs. **Watch video** opens that session's
+latest recording/replay. **Import session** copies an existing trace unchanged;
+it does not copy a video referenced by an imported file. Authored/generated
+imports are labelled so they cannot be mistaken for a physical take.
+
+The app handles recording controls, not game saves or game-specific compatibility.
+Restore the same starting view before replay. Automatic mode requires the recorded
+window size; Pointer mode supports proportional resizing. It will not bypass
+a game's input restrictions or adapt to a changed world. Desktop sessions have
+the same 35-minute ceiling as the CLI. Advanced CLI instructions follow.
+
+## The cursor choice and window sizes
+
+“Moves a cursor on screen” selects Pointer mode. It stores each position as a fraction of the game client area, together
+with the original pixel coordinates. Replay moves the pointer to that position
+before pressing the button. The window can move, the pointer can start elsewhere,
+and the window can resize proportionally. A different aspect ratio is refused.
+Keep the same UI scale, layout, camera and starting game state. These are viewport
+coordinates, not game-world coordinates: moving objects still require game
+integration or visual feedback to locate them.
+
+This works with game-drawn cursors that follow the Windows pointer. A game that
+locks the Windows pointer and maintains a separate internal cursor needs its own
+integration. Make a short fresh recording and verify the replay in your game.
+Old traces without positions cannot recover them; changing the dropdown cannot
+repair a saved trace. Replay uses the mode stored in the trace.
+
+CLI recording: add `--mouse-mode pointer` to `record --input keyboard-mouse`.
+The default `--mouse-mode auto` keeps relative camera motion and records visible
+Windows menu positions at their original size.
+
+## CLI: 1. Get the tool and video prerequisites
+
+You need Windows 10/11 x64, Node.js 20 or newer, a physical keyboard/mouse, and
+a local game you can run. Stock Windows PowerShell supplies the native input
+backend. No Python, controller or ViGEmBus driver is needed for this mode.
+
+With Git installed, open PowerShell:
+
+```powershell
+git clone https://github.com/alex-durango/qaping.git
+cd qaping/replay
+node bin/rig.js version
+```
+
+Alternatively use GitHub's **Code → Download ZIP**, extract it, and open a
+terminal in that folder. There are no npm dependencies to install. `npm test`
+runs the source checks; these do not establish compatibility with your game.
+
+For video, install a [Windows ffmpeg build](https://ffmpeg.org/download.html#build-windows)
+and put its `bin` folder on PATH. Or set its actual executable path in the same
+PowerShell session, for example:
+
+```powershell
+$env:RIG_FFMPEG = 'C:\Tools\ffmpeg\bin\ffmpeg.exe'
+node bin/rig.js doctor --input keyboard-mouse
+```
+
+Read each doctor result. It also checks optional PresentMon and hardware
+encoding and may exit nonzero when they are absent. PresentMon is not needed
+for the commands below: replay uses `--no-telemetry`. Without a working hardware
+encoder the recorder tries software capture, which can slow the game. For
+input only, omit `--video` when recording and add `--no-capture` to replay.
+
+Run the game and rig at the same privilege level. Telemetry needs an elevated
+terminal, but the keyboard/mouse workflow without telemetry can run normally.
+Use the interactive desktop; switching Windows sessions or connecting through
+RDP can disrupt capture. Video captures the desktop, including the status panel
+and any other visible windows. Keep private content off the recorded display.
+
+## 2. Preserve a starting point
+
+Use a disposable single-player save or checkpoint. Choose windowed or borderless
+mode so the status panel is visible. Keep the game on the captured display.
+
+Before recording, preserve a baseline with the game's backup/copy/export
+feature. If backing up files yourself, save and fully close the game first,
+then copy the complete save folder. Do not copy a live save database. Keep
+the baseline untouched and preserve changed saves separately.
+
+Write down the game's version, save/checkpoint, player position and camera,
+inventory, selected item, window size, resolution, UI scale, mouse DPI,
+Windows pointer settings, in-game sensitivity and key bindings. A screenshot
+of the starting view helps you compare it after a reset. Restoring only the
+blocks or level layout does not restore the player's state.
+
+Reopen the baseline, reach the starting point, and pause if the game captures
+the mouse. The pause/menu state is part of the baseline too. Do not change the
+window size after recording begins.
+
+Find the actual game process in **Task Manager → Details**. Note its PID and
+use **Open file location** to identify its executable and directory. Select the
+game process, not a launcher. The examples use PID `1234` and
+`C:\Games\YourGame\game.exe`; replace them with your values.
+
+## 3. Record your play
+
+From the source folder:
+
+```powershell
+node bin/rig.js record --input keyboard-mouse --pid 1234 --out sessions/take-01.kbmscript.json --video sessions/take-01.mp4 --max-minutes 2
+```
+
+The command creates the output folder. The **Start recording** panel waits
+until you use it, cancel with F8, or close the game/command. It has no idle
+timeout and records no video while waiting.
+
+1. Click **Start recording**. F9 is an optional shortcut while the game has focus.
+2. Release the controls. **Preparing video** changes to a visible **5…1** countdown
+   after the first video frame is encoded. There is nothing to count yourself.
+3. When **REC** and the timer appear, resume the game and play freely. Clicking
+   Resume or pressing Escape are both valid choices; that action is recorded too.
+4. Press **F8** while the game has focus to finish. Wait for the terminal to print
+   the trace path, physical event count, duration and stop reason.
+
+The two-minute limit in this example counts active input time, excluding idle
+waiting and countdown. F8 also cancels before recording. If no physical input
+was captured, the command says nothing was written; that is not a saved take.
+Switching focus stops a session. Replay does not pull focus back from another app.
+
+Keep these three files together:
+
+| File | Contents |
+| --- | --- |
+| `sessions/take-01.kbmscript.json` | Original timed physical input |
+| `sessions/take-01.kbmscript.json.capture.json` | Trace/video hashes, stop reason, video start timing and warnings |
+| `sessions/take-01.mp4` | Desktop video, including countdown and a short tail |
+
+Check that the terminal reports physical events, the sidecar's stop reason is
+what you intended, and its video failure/warnings do not indicate a broken
+capture. Watch the video before using the take. The trace's clock starts at REC,
+not at the beginning of the video.
+
+The panel closes when the command finishes. **To record again, rerun the command
+with new names**, such as `take-02`. Existing output files are never overwritten.
+You do not need a new take merely because the previous panel closed.
+
+## 4. Restore and replay
+
+Save and close the game. Preserve the post-recording save, then restore the
+complete baseline. Reopen it with the same settings, camera, inventory, window
+size and pause/menu state. Check against your starting screenshot. Replay
+does not manage saves or reset your world for you.
+
+Find the new game PID; it changes when the game restarts. Then run:
+
+```powershell
+node bin/rig.js play 'C:\Games\YourGame' --exe game.exe --pid 1234 --script sessions/take-01.kbmscript.json --no-telemetry
+```
+
+Click **Start replay**, release the controls, and let the countdown finish.
+Leave the mouse and keyboard alone during **REPLAY**. The recording already
+contains the resume action, menu clicks and gameplay. F8 aborts and releases
+held inputs. A completed replay stops on its own at the end of the trace.
+
+Attachment checks that the PID belongs to the specified executable and leaves
+the game running afterward. If your game supports direct launch, omit `--pid`
+to let Replay launch it; wait at Start until its save and menus are ready.
+Use the normal launcher and PID attachment for games that need a launcher.
+
+Automatic-mode traces store visible menu cursor positions inside the game window, so a
+click on a chest's X does not depend on where the pointer started. Hidden-camera
+motion remains relative input. Match the recorded client size and UI scale;
+replay refuses a resized client or a menu point covered by another window.
+
+`--countdown 10` changes the button-triggered countdown. `--start-delay 5`
+instead explicitly selects an automatic countdown after preparation, without
+waiting for Start. Use it only when the game is already ready and will have
+focus at countdown expiry. `--no-status` hides the panel. F8/F9 are reserved
+transport keys and are not recorded as gameplay.
+
+## 5. Check what actually happened
+
+The terminal prints a new `rig-runs/<run-id>/receipt.json` path. In that same
+folder, open `recording.mp4`, `inputs.jsonl` and `inputs-timing.jsonl`. Read a
+summary with the actual run folder:
+
+```powershell
+node bin/rig.js report 'rig-runs/<run-id>'
+```
+
+Check the receipt's script hash against your original trace, `events_sent`,
+`stop_reason`, warnings and timing. A complete input replay ends with
+`script_end`. Compare the video with the human take: did it resume, reach the
+same places, operate the menus and finish the intended actions?
+
+A `pass` receipt means the observed input/run checks completed; it does **not**
+mean the gameplay matched. A missed click or a different camera angle can change
+the result without crashing. Missing telemetry means there are no frame-time
+measurements. The `overlay` command draws controller inputs only; it does not
+generate a keyboard/mouse graphic. The live REC/REPLAY status panel is separate.
+
+Before depending on a route, repeat it from three independent baseline restores.
+Keep every attempt, including misses and setup refusals. Use the same original
+trace. If you deliberately alter the level to see the limitation, use a separate
+save and label the change; do not describe it as a bug or an adaptive replay.
+
+## Minecraft example
+
+Minecraft is optional and is not bundled. Use your own local Windows installation
+and a disposable world. One physical session on **Bedrock 1.21.130 / Windows 11**
+replayed a bridge crossing, chest inventory clicks, its close X, chest destruction
+and collection, and the return to a start marker. Camera alignment differed
+slightly, including before replay input. This is one observed route completion,
+not evidence of exact repeatability or compatibility with Java/other versions.
+
+To make a small place to try your own play, create a flat world with cheats
+enabled, Creative mode, Peaceful difficulty, daylight and no spawned mobs.
+Use ordinary blocks or these commands in that disposable world:
+
+```text
+/tp @s 1.5 -60 1.5 0 8
+/fill -3 -60 -3 5 -60 16 stone
+/fill -1 -56 -1 3 -56 4 stone
+/fill -1 -56 9 3 -56 14 stone
+/fill 0 -56 5 2 -56 8 oak_planks
+/setblock 1 -56 1 emerald_block
+/setblock 1 -56 12 gold_block
+/setblock 1 -55 12 chest
+/tp @s 1.5 -55 1.5 0 8
+/gamemode survival
+```
+
+This gives you two platforms, a short bridge, a chest and a catch floor. Empty
+your inventory, choose a hotbar slot, save/close and preserve the complete baseline
+before playing. On reopening, verify Survival, camera and inventory, then pause
+and record. The course is just a place to play; you can choose any actions.
+
+For replay, follow the full restore procedure above. Do not just replace the
+chest: the save includes your position, inventory and other state. Minecraft
+save locations vary by installation/version, so find your actual world through
+the game's save/export tools rather than assuming a machine-specific path.
+
+## Recovery
+
+For the desktop app:
+
+| What you see | What to do |
+| --- | --- |
+| The launcher does not open | Extract the ZIP first, then double-click Start Replay.cmd inside the extracted folder. First start needs an internet connection; a setup error stays visible in the launcher window. |
+| The game is missing | Open the game, then click Refresh. Run the game and rig at the same privilege level. |
+| No countdown over the game | Use windowed/borderless mode. Let video preparation finish before expecting the countdown. |
+| F8 appears not to stop | Check any keyboard Fn/F-lock behavior. Switch back to Qaping Replay and click Stop if it is still active; leaving the game also ends input. Let it finish saving. |
+| The controls disappear | During play the control panel minimizes. It should return after completion. Reopen Start Replay.cmd if the app closed; your saved sessions remain on disk. |
+| Replay is disabled | Choose a running game and saved session, restore that game's starting point, then check the reset reminder. |
+| Video setup fails | Check the internet connection and retry. Uncheck Include video to record/replay inputs without video. Show details has the specific error. |
+| Replay stops or goes off course | Read the message and Show details. Restore the starting save, camera, menu and window size before retrying; check the game-specific limits below. |
+
+### Advanced CLI recovery
+
+These entries refer to commands launched in a terminal. The one-shot CLI panel
+closes after a session; the desktop app returns to its saved-session controls.
+
+| What you see | What to do |
+| --- | --- |
+| No Start panel | Check whether the command is still armed. Use windowed/borderless mode and omit `--no-status`. A completed command needs a fresh invocation. |
+| F9 has a game action or the button is hard to reach | Pause to release the pointer and click Start. Wait for REC before resuming. F9 is optional. |
+| F8 appears not to stop | Check game focus and any keyboard Fn/F-lock behavior. If needed, Ctrl+C in Replay terminal requests a stop; wait for its final output. |
+| Panel disappears after F8 | Expected after completion. Inspect the terminal and saved files before starting another take with new names. |
+| Client size differs | Restore the same window size/maximized state, resolution and UI scale. Do not bypass the guard or edit recorded coordinates. Automation that activates a window may also restore it; verify the size before starting. |
+| Menu point is covered | Move the covering window away. If any gameplay ran, restore the baseline before retrying. |
+| Replay remains paused or misses X | Check the pause/menu state and whether the trace contains visible cursor positions. Older traces cannot recover those positions; make a fresh physical recording with this version. |
+| Camera or route drifts | Check the starting view, sensitivity, DPI and settings. Some games treat synthetic input differently; keep the unsuccessful attempt and evaluate compatibility. |
+| Video preparation/capture fails | Check `RIG_FFMPEG` and doctor. Try `--capture-mode gdigrab` for software capture, or omit video / use `--no-capture` to isolate input. |
+| PID/executable mismatch or access denied | Resolve the current game PID and actual executable path, and match privilege levels. Do not use a launcher PID. |
+
+Absolute pointing devices, E1 keys such as Pause, and games drawing their own
+pointer while hiding the Windows cursor can use Pointer mode if that cursor
+follows the Windows pointer; internally locked cursors need separate integration. This
+is game input replay, not automation for credentials or private chat text.
+Keep recordings private until you have reviewed them; `sessions/` and replay
+output folders are ignored by Git in this source checkout.
+
+[Report a problem](https://github.com/alex-durango/qaping/issues) with the
+game/version, rig version, setup, stop reason and relevant warnings. Review logs
+and screenshots for private data before attaching them.

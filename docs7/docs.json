@@ -18,20 +18,45 @@
     "groups": [
       {
         "group": "Start here",
-        "pages": ["index", "windows", "commands"]
+        "pages": [
+          "index",
+          "windows",
+          "commands"
+        ]
       },
       {
         "group": "The QA loop",
-        "pages": ["qa-plan", "skill"]
+        "pages": [
+          "qa-plan",
+          "skill"
+        ]
+      },
+      {
+        "group": "Replay",
+        "pages": [
+          "replay",
+          "replay-keyboard-mouse",
+          "replay-controller"
+        ]
       }
     ]
   },
   "navbar": {
     "links": [
-      { "label": "GitHub", "href": "https://github.com/alex-durango/qaping" },
-      { "label": "npm", "href": "https://www.npmjs.com/package/@qaping/cli" }
+      {
+        "label": "GitHub",
+        "href": "https://github.com/alex-durango/qaping"
+      },
+      {
+        "label": "npm",
+        "href": "https://www.npmjs.com/package/@qaping/cli"
+      }
     ],
-    "primary": { "type": "button", "label": "qaping.dev", "href": "https://qaping.dev" }
+    "primary": {
+      "type": "button",
+      "label": "qaping.dev",
+      "href": "https://qaping.dev"
+    }
   },
   "footer": {
     "socials": {
@@ -42,7 +67,9 @@
     "organization": {
       "name": "qaping",
       "url": "https://qaping.dev",
-      "sameAs": ["https://www.npmjs.com/package/@qaping/cli"]
+      "sameAs": [
+        "https://www.npmjs.com/package/@qaping/cli"
+      ]
     }
   }
 }

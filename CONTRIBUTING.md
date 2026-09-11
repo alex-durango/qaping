@@ -21,7 +21,8 @@ Link the page or section you want to improve and suggest the wording, or
 describe the game-development task you are trying to complete. Concrete
 examples help us understand the change.
 
-This repository contains Qaping's public documentation. It is synced from the
-documentation maintained with the CLI, so maintainers apply accepted changes
-there and publish them here. You can use an issue or pull request to propose
+This repository contains Qaping documentation and the Qaping Replay source in
+`replay/`. For Replay changes, run `npm test` from that folder; see its
+[contribution guide](replay/CONTRIBUTING.md). Both surfaces are generated from
+the canonical development tree, where maintainers apply accepted changes. You can use an issue or pull request to propose
 a correction.

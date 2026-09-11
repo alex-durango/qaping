@@ -1,0 +1,13 @@
+{
+  "schema": "pingfusi-padscript/v1",
+  "source": "authored",
+  "meta": {
+    "notes": "Format example only. Not recorded from a person or validated against a game."
+  },
+  "start": { "wait_for": { "kind": "fixed_delay", "ms": 8000 } },
+  "moves": [
+    { "op": "stick", "stick": "L", "x": 0, "y": 1, "ms": 400 },
+    { "op": "press", "btn": "A", "ms": 80 },
+    { "op": "neutral", "ms": 200 }
+  ]
+}

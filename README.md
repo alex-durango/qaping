@@ -36,6 +36,16 @@ Every playtest includes the standard 11-question player-experience questionnaire
 Your agent can add up to eight custom questions after it; it cannot disable the
 standard questionnaire.
 
+## Replay your own game actions
+
+**Qaping Replay** records keyboard, mouse, or controller inputs and plays them back in a Windows game. It runs locally, with no account required.
+
+[Download Qaping Replay](https://github.com/alex-durango/qaping/archive/refs/heads/main.zip), extract the ZIP, open **replay**, and double-click **Start Replay.cmd**.
+
+[Replay source and quickstart](https://github.com/alex-durango/qaping/tree/main/replay) · [Replay documentation](https://qaping.dev/docs/replay)
+
+Restore the same starting save, character, and settings before replay. Compatibility varies by game; recorded inputs do not guarantee identical gameplay outcomes.
+
 ## Quickstart
 
 Install [Node.js](https://nodejs.org/en/download) first (Node 24 LTS recommended),
