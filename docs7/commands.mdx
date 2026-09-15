@@ -74,9 +74,15 @@ rounds are filed with that URL and no platform.
 
 ### `qaping wait <ping_id> [--timeout <seconds>]`
 
-Waits on a filed round, renewing the lease that keeps it visible to new
-playtesters, and prints the results when they land. The agent normally runs
-this in a background task.
+Optional interactive waiting on a filed round. This may extend a live deadline,
+but never shortens a longer one or revives an expired round. New native and web
+playtests default to a 72-hour window, subject to the service ceiling, and do
+not need a waiter. The submission receipt shows the actual deadline. Existing
+rounds keep their stored deadline.
+
+By default, submit a playtest, report its saved receipt, and collect later with
+`qaping rounds`. Automatic notification requires a supported scheduler that was
+actually configured; saving a round alone does not arrange a follow-up.
 
 ### `qaping results <ping_id> [--json]`
 

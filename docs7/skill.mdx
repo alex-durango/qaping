@@ -18,36 +18,32 @@ The CLI hosts builds and manages server workflow with `qaping rounds`.
 
 ## Ground rules (read before filing anything)
 
-- **Playtesters are real people, and a round outlives a quick turn.
-  Decide at filing time: wait, or park.** A session takes real minutes, often
-  hours, to be claimed and played. Which of the two endings this round gets is
-  chosen BEFORE you file, not discovered when pending surprises you.
-  - **WAIT — short rounds you can sit through.** Each `qaping_wait` renews the
-    lease that keeps the round visible to new claimants. The moment a filing
-    returns pending, SPAWN A BACKGROUND TASK that loops `qaping_wait` with the
-    ping_id until results arrive, and keep working on other things — that is
-    the intended shape for a short playtest round. Only if your harness
-    has no background tasks: keep polling in the foreground. A one-shot print
-    mode where neither is possible is not a WAIT round at all — it is a PARK
-    (below): file with an explicit `deadline_seconds` and `qa_context`, say what is pending, and ask to be re-invoked to
-    collect it — never promise polling you cannot do (an ended session cannot
-    poll). A round already filed on the default lease is saved on the server anyway;
-    flag it as likely to expire unclaimed.
-  - **PARK — long or overnight rounds.** For a session nobody will sit
-    through — an overnight run, `n_target > 1` on a small pool, a native round
-    whose claim is slow, an explicit "check tomorrow", or a one-shot mode —
-    file with an explicit `deadline_seconds` sized to the span you are willing
-    to wait (the tool schema states the ceiling) plus an `idempotency_key`,
-    and `qa_context: {checks: [...], note: "<patch>", commit: "<sha>",
-    pr_url: "<PR URL>"}` (omit unknown optional fields). The round and this
-    private context are saved in ONE transaction. No separate add or local
-    write is needed. Tell the user what is pending and what will collect it,
-    and end the turn cleanly.
-  - **A recorded parked round is an honest pending end; an unrecorded "I'll
-    check later" never is.** Never park on the default lease: with no explicit
-    `deadline_seconds` an unwaited round leaves the feed within minutes and
-    expires unclaimed (a round died exactly that way, live). On resume,
-    collect the recorded round — never file a duplicate.
+- **Playtesters are real people; submit now and collect later.** File the
+  requested round, report its receipt, and end the turn. The server keeps
+  it visible to new claimants through its stored deadline without an agent
+  waiter. Native AND web games default to a 72-hour window, subject to the
+  service ceiling; use the receipt's actual `deadline_at`. An explicit
+  `deadline_seconds` can choose a shorter window.
+  Send an `idempotency_key` and `qa_context: {checks: [...], note: "<patch>",
+  commit: "<sha>", pr_url: "<PR URL>"}` (omit unknown optional fields). The
+  round and private context are saved in ONE transaction. On an uncertain
+  reply, recover through `qaping rounds` or retry with the SAME key.
+  The receipt names the round ID, game/build, deadline, session length,
+  requested players, credit estimate and report link. Pending means accepted
+  for playtesting, not completed or approved. No local round record is needed.
+- **Wait only when requested.** `qaping_wait` remains available for an
+  interactive wait, but pending never requires automatic continuation or
+  a background task. Each call is bounded; it may extend a live deadline
+  without shortening a longer one or reviving an expired round. Collect on
+  a later request, or through a supported scheduler the user requested.
+  Never promise polling or a later notification after the session ends
+  unless that follow-up was actually scheduled. Existing short-deadline
+  rounds keep their stored window; do not assume they acquired the new default.
+- **Feedback has several meanings.** Separate player playability, questionnaire
+  ratings, QA-plan check outcomes and issue verification. A negative rating
+  is not a code-change instruction, and no overall approval verdict is
+  required. Fixes and further paid rounds follow the user's authorized scope;
+  do not automatically refile because feedback contains unresolved findings.
 - **Costs are duration-billed**: 2 credits per minute of play, per playtester
   (`est_minutes × 2 × players`). State the estimate to the user BEFORE filing,
   and set the wait expectation honestly in the same message: claim time is
@@ -155,8 +151,8 @@ records that as a not-seen streak for you to act on (close it
   claimed fix banks ONE confirmation per distinct playtester: a `blocker` or a
   `major` needs TWO before it turns `verified`, a `minor` or `cosmetic` needs
   one. Under the bar the results say `1 of 2 confirmations` and the issue stays
-  amber — that is a fix HOLDING, not a fix that failed. Buy the second
-  confirmation with the next round; never re-claim to hurry it, because a fresh
+  amber — that is a fix HOLDING, not a fix that failed. Carry the remaining
+  confirmation into the next authorized round; never re-claim to hurry it, because a fresh
   claim resets the count to zero.
 - **A freshly verified issue rides one more round.** It comes back on the next
   checklist labelled "verified last round — still gone?", then drops off for
@@ -495,13 +491,12 @@ checks testimony-only — mark that in the plan and report at that grade.
    checklist it built, which of them you pinned, and anything the round's own
    cap left off), or `issues: none` on an empty board — so what this round
    RE-CHECKS is on the record beside what it covers.
-7. **Wait or park — decide now** (ground rule 1). Every filing carries
-   `qa_context` with the selected check ids and known patch/commit/PR context.
-   WAIT: spawn a background task looping `qaping_wait` and keep working —
-   foreground polling is the fallback. PARK: the filing already carried an
-   explicit `deadline_seconds` sized to the span and is saved on the server.
-   Tell the user what is pending and end the turn; a later session collects it.
-   A promise to check later is never a wait. No local round record is needed.
+7. **Return the submission receipt.** Every filing carries `qa_context` with
+   selected check ids and known patch/commit/PR context. State the ID, actual
+   deadline, game/build, session length, requested players, estimate and report
+   link, then end the turn. The next step is later collection through
+   `qaping rounds`, not an automatic wait chain. If the user asked to wait or
+   scheduled a follow-up, use that requested mode (ground rules).
 8. **Report** from `qaping_results`, after claiming the round as above:
    - **Evidence line first (MUST).** Every report opens with its grade:
      `Evidence: recording + transcript` (macOS/iOS, or a Windows result with
@@ -513,8 +508,8 @@ checks testimony-only — mark that in the plan and report at that grade.
      when every selected check returned Pass; `PASS — N unverified (<ids>)`
      when nothing failed but any check is Blocked or NOT-ASKED; `FAIL: <id>`
      on any Fail. Quote the tester's global verdict beneath it as one input —
-     it is never the headline. (The iterate rule already says unresolved
-     findings mean fix and refile — unresolved never headlines as PASS.)
+     it is never the headline. Missing or unresolved check evidence remains
+     visible in the report; it does not authorize another paid round.
    - **Issues line (MUST), under the headline.** One line read off the
      results' issue block: `issues: #3 verified, #5 REGRESSED, #7 unreached,
      2 new` — verified first, regressions next, then `unreached` for the
@@ -525,7 +520,7 @@ checks testimony-only — mark that in the plan and report at that grade.
      carried no `game`. Two qualifiers from that block never get dropped on
      the way into the line: `1 of 2 confirmations` means the fix HELD for that
      player and needs one more — report it as holding, never as verified, and
-     buy the second with the next round; `not shown to N players` means those
+     carry it into the next authorized round; `not shown to N players` means those
      sessions never rendered a checklist at all, so name that instead of
      counting them as silence. A REGRESSED issue is a failure of a fix you
      claimed: say so in words, in the same breath as the headline.
@@ -632,10 +627,10 @@ checks testimony-only — mark that in the plan and report at that grade.
 
 ## The ambiguity ladder
 
-An `ambiguous` or first-time-failing check never re-runs inside the next
-batch — it refiles ALONE as a targeted ~5-minute round: one check, its
+When another round is authorized, investigate an `ambiguous` or first-time-failing
+check in a targeted ~5-minute round rather than repeating the whole batch: one check, its
 precondition forced via `setup` (or verified by the opening option step),
-plus the disambiguation steps. That round settles it: Pass → `passed` (note
+plus the disambiguation steps. Assess its evidence: Pass → `passed` (note
 the fluke); Fail → `failing`, and the issue upgrades to CONFIRMED. Never
 resolve an ambiguity by re-buying the whole batch, and never label a
 once-seen fail CONFIRMED without that round or hard evidence. When the

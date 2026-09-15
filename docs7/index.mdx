@@ -71,8 +71,14 @@ After your next change:
 Run QA on this patch.
 ```
 
-Your agent keeps the plan in `QA-PLAN.md`, so checks and past results stay with
-your game. QA runs from your coding agent when you ask it to run a patch.
+Your agent keeps check definitions in `QA-PLAN.md`; round context, evidence and
+reports stay on the server. After submitting, it returns the round ID, deadline,
+cost estimate and report link. Native and web playtests default to a 72-hour
+window, subject to the service ceiling, without keeping your agent waiting.
+
+Ask your agent to collect the results later, or use `qaping rounds` to find them.
+Waiting is optional; automatic notifications need a supported scheduler that you
+have asked your agent to configure.
 
 ## Example prompts
 
